@@ -24,7 +24,6 @@ estimated_spaces_data: "./output/estimated_spaces.csv"          # Output from sp
 # Parameters
 walk_dist: 0.5
 walk_coef: -0.3
-plot: True
 
 # Which models to run, comment out any that you wish to not run. 
 # However, be sure that the input is ready for whatever the new first model is.
@@ -34,5 +33,5 @@ models:
   # - run_reduction
   # - run_imputation
   # - create_districts
-  - run_space_estimation
-  # - run_expected_parking_cost
+  # - run_space_estimation
+  - run_expected_parking_cost

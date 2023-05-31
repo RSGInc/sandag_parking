@@ -8,10 +8,10 @@ import pandas as pd
 import statsmodels.formula.api as smf
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from .base import Base
+from . import base
 
 
-class EstimateStreetParking(Base):
+class EstimateStreetParking(base.Base):
     def run_space_estimation(self):
         method = self.settings.get("space_estimation_method")
         cache_dir = self.settings.get("cache_dir")
@@ -219,9 +219,9 @@ class EstimateStreetParking(Base):
 
         # plot distributions
         plots_dir = self.settings.get("plots_dir")
-        self.plot_distributions(model_df, dir=plots_dir)
-        self.plot_reg(model_df, dir=plots_dir)
-        self.plot_predictions(mod_lm, model_df, dir=plots_dir)
+        self.plot_distributions(model_df, plots_dir)
+        self.plot_reg(model_df, plots_dir)
+        self.plot_predictions(mod_lm, model_df, plots_dir)
 
         return result
 

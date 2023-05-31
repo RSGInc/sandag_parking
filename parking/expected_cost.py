@@ -4,9 +4,10 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 from tqdm import tqdm
-from .base import Base
+import matplotlib.pyplot as plt
+from . import base
 
-class ExpectedParkingCost(Base):
+class ExpectedParkingCost(base.Base):
     def run_expected_parking_cost(self):
         # Inputs
         cache_dir = self.settings.get("cache_dir")
@@ -49,6 +50,7 @@ class ExpectedParkingCost(Base):
         exp_prkcosts_df = exp_prkcosts_df.fillna(0)
 
         exp_prkcosts_df.to_csv(f"./{output_dir}/expected_parking_costs.csv")
+        self.map_costs_pngs(exp_prkcosts_gdf, plots_dir)
         self.map_costs(exp_prkcosts_gdf, plots_dir)
 
         return exp_prkcosts_gdf
@@ -155,7 +157,7 @@ class ExpectedParkingCost(Base):
 
         return expected_cost
 
-    def map_costs(self, exp_prkcost_gdf, plot_dir):
+    def map_costs(self, exp_prkcost_gdf, plots_dir):
         for cost_type in ["exp_hourly", "exp_daily", "exp_monthly"]:
             gdf = exp_prkcost_gdf[["geometry", cost_type]].dropna().reset_index()
             gdf = gpd.GeoDataFrame(gdf)
@@ -179,4 +181,17 @@ class ExpectedParkingCost(Base):
             ).add_to(
                 map
             )  # name on the legend color bar
-            map.save(f"{plot_dir}/parking_costs_{cost_type}.html")
+            map.save(f"{plots_dir}/parking_costs_{cost_type}.html")
+            
+    def map_costs_pngs(self, exp_prkcost_gdf, plots_dir):        
+                
+        for cost_type in ["exp_hourly", "exp_daily", "exp_monthly"]:
+            fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+            lab = cost_type[4:].capitalize()
+            gdf = exp_prkcost_gdf[["geometry", cost_type]].dropna().reset_index()
+            gdf = gpd.GeoDataFrame(gdf)
+            # ax.axis('off')
+            ax.set_xlim(np.array([6.26, 6.31]) * 1e6)
+            ax.set_ylim(np.array([1.82, 1.86]) * 1e6)
+            gdf.plot(column=cost_type, alpha=0.5, ax=ax, legend=True).set_title(f'{lab} Expected Parking Costs')
+            fig.savefig(f"{plots_dir}/parking_costs_{cost_type}.png")

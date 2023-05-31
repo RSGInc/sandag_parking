@@ -5,9 +5,9 @@ import scipy
 import matplotlib.pyplot as plt
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
-from .base import Base
+from . import base
 
-class ImputeParkingCosts(Base):
+class ImputeParkingCosts(base.Base):
     def run_imputation(self):
         print("Impute missing parking costs")
 
@@ -29,8 +29,7 @@ class ImputeParkingCosts(Base):
         imputed_df = self.label_imputations(imputed_df, reduced_df)
 
         # Plotting
-        if self.settings.get("plot"):
-            self.plot_imputation(reduced_df, imputed_df, lm_res)
+        self.plot_imputation(reduced_df, imputed_df, lm_res)
 
         # Outputs
         imputed_df.to_csv(out_path)

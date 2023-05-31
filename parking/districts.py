@@ -5,10 +5,11 @@ import pandas as pd
 import geopandas as gpd
 import alphashape
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 from sklearn.cluster import AgglomerativeClustering
-from .base import Base
+from . import base
 
-class CreateDistricts(Base):
+class CreateDistricts(base.Base):
     def create_districts(self):
         print("Creating parking districts")
 
@@ -30,10 +31,10 @@ class CreateDistricts(Base):
             self.save_districts(geo)
 
         # Save district data to csv
+        self.map_districts_pngs(self.districts_dict, mgra_gdf, plots_dir)
+        self.map_districts(self.districts_dict, mgra_gdf, plots_dir)        
+        
         self.districts_dict["districts"].drop(columns="geometry").to_csv(out_path)
-
-        if self.settings.get("plot"):
-            self.map_districts(self.districts_dict, mgra_gdf, plots_dir)
 
         return self.districts_dict
 
@@ -201,6 +202,26 @@ class CreateDistricts(Base):
             style_function=lambda x: {"fillColor": "#000000", "weight": 0},
         ).add_to(map)
         map.save(f"{plots_dir}/4_parking_district.html")
+        
+    def map_districts_pngs(self, district_dict, mgra_gdf, plots_dir):
+        parking_districts = district_dict["districts"]
+        parking_hulls = district_dict["hulls"]
+        parking_buffered_hulls = district_dict["buffered_hulls"]
+        parking_clusters = district_dict["clusters"]
+        
+        fig, axes = plt.subplots(2, 2, figsize=(8, 7))
+        for axrow in axes:
+            for ax in axrow:
+                ax.axis('off')
+                mgra_gdf.geometry.plot(color='white', edgecolor='k', linewidth=0.125, ax=ax)
+                ax.set_xlim(np.array([6.26, 6.31]) * 1e6)
+                ax.set_ylim(np.array([1.82, 1.86])*1e6)
+        parking_clusters.plot(column='cluster_id', alpha=0.5, ax=axes[0][0], legend=False).set_title('Parking zone clusters')
+        parking_hulls.geometry.reset_index().plot(column='hull_id', alpha=0.5, ax=axes[0][1], legend=False).set_title('Concave hulls')
+        parking_buffered_hulls.geometry.reset_index().plot(column='district_id', alpha=0.5, ax=axes[1][0], legend=False).set_title('Buffered hulls')
+        parking_districts[~parking_districts.district_id.isnull()].plot(column='district_id', alpha=0.5, ax=axes[1][1], legend=False).set_title('Parking districts')
+
+        fig.savefig(f'{plots_dir}/clustermethod.png', dpi=800)
 
     def save_districts(self, geo):
         # Create cach directory if not already there

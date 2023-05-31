@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
-from .base import Base
+from . import base
 
 
-class ReduceRawParkingData(Base):
+class ReduceRawParkingData(base.Base):
     def run_reduction(self):
         print("Reducing raw parking data")
         in_path = self.settings.get("raw_parking_inventory")

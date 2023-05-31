@@ -1,0 +1,38 @@
+space_estimation_method: 'lm'
+cache_dir: "./cache"
+output_dir: "./output"
+plots_dir: "./output/plots"
+
+# Inputs
+land_use: "./data/land_use.csv"
+geometry: "./data/mgra15/mgra15.shp"
+
+
+# Data input/outputs. These files serve as both inputs and output locations.
+raw_parking_inventory: "./data/mgra_parking_inventory.csv"      # Input for data reduction step
+reduced_parking_costs: "./output/reduced_parking_costs.csv"     # Output from reduction and also input to imputation step
+imputed_parking_costs: "./output/imputed_parking_costs.csv"     # Output from imputation and also input to district creation
+district_data: "./output/district_data.csv"                     # Output from district creation and also input to aggregation
+aggregated_street_data: "./output/aggregated_street_data.csv"   # Output from network data aggregation and input to space estimation
+estimated_spaces_data: "./output/estimated_spaces.csv"          # Output from space estimation
+
+# expected cost calculation requires
+# - "imputed_parking_costs"
+# - "estimated_spaces_data"
+# - "district_data"
+
+# Parameters
+walk_dist: 0.5
+walk_coef: -0.3
+plot: True
+
+# Which models to run, comment out any that you wish to not run. 
+# However, be sure that the input is ready for whatever the new first model is.
+# For example, if you have parking data cleaned up already, it can be fed into the 'create_districts' model.
+# Or if you manually estimated spaces, you can skip that model too.
+models:
+  # - run_reduction
+  # - run_imputation
+  # - create_districts
+  - run_space_estimation
+  # - run_expected_parking_cost

@@ -1,8 +1,9 @@
-output
+# output
 mgra15
 cache
 data\mgra15
 
+*.html
 *.graphml
 
 # Byte-compiled / optimized / DLL files

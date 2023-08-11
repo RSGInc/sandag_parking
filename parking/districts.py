@@ -10,33 +10,46 @@ from sklearn.cluster import AgglomerativeClustering
 from . import base
 
 class CreateDistricts(base.Base):
+    
     def create_districts(self):
         print("Creating parking districts")
 
-        # Read input
-        in_path = self.settings.get("imputed_parking_costs")
-        out_path = self.settings.get("district_data")
-        plots_dir = self.settings.get("plots_dir")
-
-        parking_costs_df = pd.read_csv(in_path).set_index("mgra")
-        mgra_gdf = self.mgra_data()
-
-        # Create districts
-        self.districts_dict = self.parking_districts(
-            parking_costs_df, mgra_gdf, self.settings.get("walk_dist")
-        )
-
-        # Create cach directory if not already there
-        for geo in self.districts_dict.keys():
-            self.save_districts(geo)
-
-        # Save district data to csv
-        self.map_districts_pngs(self.districts_dict, mgra_gdf, plots_dir)
-        self.map_districts(self.districts_dict, mgra_gdf, plots_dir)        
+        # use existing data if available
+        out_dir = os.path.join(self.settings.get("output_dir"), "shapefiles")
+        targets = ['districts', 'hulls', 'buffered_hulls', 'clusters']
         
-        self.districts_dict["districts"].drop(columns="geometry").to_csv(out_path)
+        shp_files = [os.path.exists(f"{out_dir}/{geo}.shp") for geo in targets]
+        df_file = os.path.exists(os.path.join(out_dir, 'districts.csv'))
+             
+        if all(shp_files + [df_file]):
+            print("Using existing district data")
+            self.districts_df = pd.read_csv(os.path.join(out_dir, 'districts.csv'))
+        else:        
+            # Read input
+            plots_dir = self.settings.get("plots_dir")
+                    
+            mgra_gdf = self.mgra_data()
 
-        return self.districts_dict
+            # Create districts
+            self.districts_dict = self.parking_districts(
+                self.imputed_parking_df, mgra_gdf, self.settings.get("walk_dist")
+            )
+
+            # Create cach directory if not already there
+            for geo in self.districts_dict.keys():
+                self.save_districts(geo)
+
+            # Save district data to csv
+            self.map_districts_pngs(self.districts_dict, mgra_gdf, plots_dir)
+            self.map_districts(self.districts_dict, mgra_gdf, plots_dir)
+            
+            self.districts_df = self.districts_dict['districts'].drop(columns=['geometry'])
+            
+            self.districts_df.to_csv(os.path.join(out_dir, 'districts.csv'))
+
+        # append combined
+        self.combined_df = self.combined_df.join(self.districts_df)
+
 
     def parking_districts(self, imputed_df, mgra_gdf, max_dist):
         # 1. Spatially cluster zones with paid parking
@@ -137,6 +150,15 @@ class CreateDistricts(base.Base):
             "buffered_hulls": buffer_geoms,
             "clusters": parking_clusters,
         }
+        
+        # parking_type:
+        # 1: parking constrained area, 
+        # 2: buffer around parking constrained area which is used to include free spaces to average into parking cost calculation, 
+        # 3: no parking cost      
+        
+        parking_districts["parking_type"] = 3
+        parking_districts.loc[~parking_districts.cluster_id.isnull(), "parking_type"] = 1
+        parking_districts.loc[~parking_districts.district_id.isnull(), "parking_type"] = 2
 
         return output
 
@@ -145,8 +167,11 @@ class CreateDistricts(base.Base):
         parking_hulls = district_dict["hulls"]
         parking_buffered_hulls = district_dict["buffered_hulls"]
         parking_clusters = district_dict["clusters"]
+        
+        print("Plotting parking districts to html")
 
         # Plot paid parking zones
+        print(f"Saving paid zones cluster map to {plots_dir}/1_paid_zones.html")
         map = folium.Map(
             location=[32.7521765494396, -117.11514883606573],
             tiles="Stamen Toner",
@@ -159,8 +184,8 @@ class CreateDistricts(base.Base):
             key_on="feature.properties.mgra",
             fill_column="cluster_id",
             fill_color="Set3",  # cmap
-            line_weight=0.1,  # line wight (of the border)
-            line_opacity=0.5,  # line opacity (of the border)
+            line_weight=0.1,  # line wight (of the border)      # type: ignore
+            line_opacity=0.5,  # line opacity (of the border)   # type: ignore
             legend_name="Parking clusters",
         ).add_to(
             map
@@ -168,6 +193,7 @@ class CreateDistricts(base.Base):
         map.save(f"{plots_dir}/1_paid_zones.html")
 
         # Plot concave hull areas
+        print(f"Saving concave hull map to {plots_dir}/2_concave_hull.html")
         folium.GeoJson(
             data=parking_hulls.geometry,
             style_function=lambda x: {
@@ -179,6 +205,7 @@ class CreateDistricts(base.Base):
         map.save(f"{plots_dir}/2_concave_hull.html")
 
         # Plot buffered concave hulls
+        print(f"Saving buffered hull map to {plots_dir}/3_buffered_hull.html")
         buffered_hulls = gpd.GeoSeries(
             parking_buffered_hulls.geometry.unary_union
         ).set_crs(mgra_gdf.crs.to_epsg())
@@ -193,6 +220,7 @@ class CreateDistricts(base.Base):
         map.save(f"{plots_dir}/3_buffered_hull.html")
 
         # Plot parking district zones
+        print(f"Saving parking district map to {plots_dir}/4_parking_district.html")
         gdf_districts = parking_districts[
             ~parking_districts.district_id.isnull()
         ].geometry.unary_union
@@ -200,7 +228,7 @@ class CreateDistricts(base.Base):
         folium.GeoJson(
             data=gdf_districts,
             style_function=lambda x: {"fillColor": "#000000", "weight": 0},
-        ).add_to(map)
+        ).add_to(map)        
         map.save(f"{plots_dir}/4_parking_district.html")
         
     def map_districts_pngs(self, district_dict, mgra_gdf, plots_dir):
@@ -209,6 +237,9 @@ class CreateDistricts(base.Base):
         parking_buffered_hulls = district_dict["buffered_hulls"]
         parking_clusters = district_dict["clusters"]
         
+        print("Plotting parking districts to PNGs")
+        
+        print(f"Saving parking district map to {plots_dir}/4_parking_district.png")
         fig, axes = plt.subplots(2, 2, figsize=(8, 7))
         for axrow in axes:
             for ax in axrow:
@@ -220,10 +251,11 @@ class CreateDistricts(base.Base):
         parking_hulls.geometry.reset_index().plot(column='hull_id', alpha=0.5, ax=axes[0][1], legend=False).set_title('Concave hulls')
         parking_buffered_hulls.geometry.reset_index().plot(column='district_id', alpha=0.5, ax=axes[1][0], legend=False).set_title('Buffered hulls')
         parking_districts[~parking_districts.district_id.isnull()].plot(column='district_id', alpha=0.5, ax=axes[1][1], legend=False).set_title('Parking districts')
-
+        
         fig.savefig(f'{plots_dir}/clustermethod.png', dpi=800)
 
     def save_districts(self, geo):
+        print(f"Saving {geo} shapefile")
         # Create cach directory if not already there
         out_dir = os.path.join(self.settings.get("output_dir"), "shapefiles")
         if not os.path.exists(out_dir):

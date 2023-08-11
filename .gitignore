@@ -2,6 +2,7 @@
 mgra15
 cache
 data\mgra15
+output
 
 *.html
 *.graphml

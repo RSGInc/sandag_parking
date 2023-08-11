@@ -88,7 +88,7 @@ class Base:
                 # Format column names
                 renaming = {k: k if v is None else v for k, v in output_cols[df_name].items()}
                 df = df.rename(columns=renaming)[renaming.values()]
-                # df.fillna(999, inplace=True)
+                df.fillna(0, inplace=True)
             
             df.to_csv(out_path, index=False)
        

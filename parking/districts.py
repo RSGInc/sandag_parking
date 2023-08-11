@@ -12,28 +12,33 @@ from . import base
 class CreateDistricts(base.Base):
     
     def create_districts(self):
-        print("Creating parking districts")
 
-        # use existing data if available
         out_dir = os.path.join(self.settings.get("output_dir"), "shapefiles")
-        targets = ['districts', 'hulls', 'buffered_hulls', 'clusters']
+
+        mgra_gdf = self.mgra_data()        
+        print("Creating parking districts")
+        self.districts_dict = self.parking_districts(
+            self.imputed_parking_df, mgra_gdf, self.settings.get("walk_dist")
+        )
         
-        shp_files = [os.path.exists(f"{out_dir}/{geo}.shp") for geo in targets]
-        df_file = os.path.exists(os.path.join(out_dir, 'districts.csv'))
-             
-        if all(shp_files + [df_file]):
+        self.districts_df = self.districts_dict['districts'].drop(columns=['geometry'])        
+        
+        prev_dir = os.path.join(out_dir, 'districts.csv')
+        same = False
+        if os.path.exists(prev_dir):
+            prev_df = pd.read_csv(prev_dir).set_index(self.districts_df.index.name)
+            if prev_df.equals(self.districts_df):
+                same = True        
+            
+        all_shp_files = all([os.path.exists(f"{out_dir}/{geo}.shp") for geo in self.districts_dict.keys()])
+        
+        # Skip this step if nothing to update
+        if all_shp_files and same:
             print("Using existing district data")
             self.districts_df = pd.read_csv(os.path.join(out_dir, 'districts.csv'))
-        else:        
+        else:
             # Read input
             plots_dir = self.settings.get("plots_dir")
-                    
-            mgra_gdf = self.mgra_data()
-
-            # Create districts
-            self.districts_dict = self.parking_districts(
-                self.imputed_parking_df, mgra_gdf, self.settings.get("walk_dist")
-            )
 
             # Create cach directory if not already there
             for geo in self.districts_dict.keys():
@@ -42,12 +47,12 @@ class CreateDistricts(base.Base):
             # Save district data to csv
             self.map_districts_pngs(self.districts_dict, mgra_gdf, plots_dir)
             self.map_districts(self.districts_dict, mgra_gdf, plots_dir)
-            
-            self.districts_df = self.districts_dict['districts'].drop(columns=['geometry'])
-            
-            self.districts_df.to_csv(os.path.join(out_dir, 'districts.csv'))
 
         # append combined
+        assert isinstance(self.districts_df, pd.DataFrame), "districts_df must be a dataframe"
+        assert isinstance(self.combined_df, pd.DataFrame), "combined_df must be a dataframe"
+        
+        self.districts_df.to_csv(os.path.join(out_dir, 'districts.csv'))
         self.combined_df = self.combined_df.join(self.districts_df)
 
 

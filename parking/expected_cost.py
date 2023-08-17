@@ -12,7 +12,6 @@ class ExpectedParkingCost(base.Base):
     def run_expected_parking_cost(self):
         # Inputs
         out_dir = self.settings.get("output_dir")
-        cache_dir = self.settings.get("cache_dir")
         plots_dir = self.settings.get("plots_dir")
                 
         assert isinstance(self.districts_dict, dict), "Must run create_districts() first"

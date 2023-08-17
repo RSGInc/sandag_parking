@@ -20,10 +20,11 @@ outputs:
   combined_df: './output/final_parking_data.csv'                  # Output
 
 output_columns: 
-  combined_df: 
-    mgra:
+  combined_df:  # The data frame that is output from the model
+    mgra:       # column name: optional new column name
     exp_hourly:
     exp_daily:
+    exp_monthly:
     parking_type:
     spaces: parking_spaces
 

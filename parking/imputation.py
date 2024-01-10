@@ -5,15 +5,21 @@ import scipy
 import matplotlib.pyplot as plt
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
-from . import base
+import base
+
 
 class ImputeParkingCosts(base.Base):
-    
-    def run_imputation(self):
-        print("Impute missing parking costs")   
+    imputed_parking_df = pd.DataFrame()
+    combined_df = pd.DataFrame()
+    lm_res = {}
 
-        assert isinstance(self.reduced_parking_df, pd.DataFrame), "Must run create_reduced_parking_df() first"
-        
+    def run_imputation(self):
+        print("Impute missing parking costs")
+
+        assert isinstance(self.reduced_parking_df, pd.DataFrame), (
+            "Must run create_reduced_parking_df() first"
+        )
+
         # Estimate model fit
         lm_res = self.linear_model(self.reduced_parking_df)
 
@@ -23,11 +29,10 @@ class ImputeParkingCosts(base.Base):
 
         # Plotting
         self.plot_imputation(self.reduced_parking_df, self.imputed_parking_df, lm_res)
-        
-        # append combined        
+
+        # append combined
         new_cols = list(set(self.imputed_parking_df.columns) - set(self.reduced_parking_df.columns))
         self.combined_df = self.combined_df.join(self.imputed_parking_df[new_cols])
-
 
     # Estimate cost conversion model
     def linear_model(self, reduced_df):
@@ -95,7 +100,8 @@ class ImputeParkingCosts(base.Base):
 
         return reduced_df
 
-    # This basically does the same as the above, except for all cost columns and makes use of land use data
+    # This basically does the same as the above,
+    # except for all cost columns and makes use of land use data
     def MICE_imputation(self, reduced_df, lu_df):
         # Step 2: Imputation
         all(lu_df.acres == lu_df.effective_acres)

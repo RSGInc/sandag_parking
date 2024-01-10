@@ -5,14 +5,14 @@ import yaml
 
 
 class Base:
-    
+
     reduced_parking_df = None
     imputed_parking_df = None
-    districts_df = None    
+    districts_df = None
     estimated_spaces_df = None
     districts_dict = None
     combined_df = None
-    
+
     def __init__(self):
         with open("settings.yaml", "r") as stream:
             try:
@@ -49,12 +49,12 @@ class Base:
         self.full_graph = None
         self.street_data = None
         self.mgra_gdf = None
-        
+
         # Input data
-        inputs = self.settings.get('inputs')        
+        inputs = self.settings.get('inputs')
         raw_path = inputs.get("raw_parking_inventory")
         lu_path = inputs.get("land_use")
-        
+
         self.raw_parking_df = pd.read_csv(raw_path).set_index("mgra")
         self.lu_df = pd.read_csv(lu_path).set_index("mgra")
 
@@ -75,22 +75,20 @@ class Base:
                 self.mgra_gdf = gpd.read_file(cached_path).set_index("MGRA")
 
         return self.mgra_gdf
-       
-    
+
     def write_output(self):
-                
+
         output_cols = self.settings.get('output_columns')
-        
+
         for df_name, out_path in self.settings.get('outputs').items():
             df = getattr(self, df_name).reset_index()
-            
-            if df_name in output_cols.keys():                                
+
+            if df_name in output_cols.keys():
                 # Format column names
                 renaming = {k: k if v is None else v for k, v in output_cols[df_name].items()}
                 df = df.rename(columns=renaming)[renaming.values()]
                 df.fillna(0, inplace=True)
-            
+
             df.to_csv(out_path, index=False)
-       
+
         return
-   

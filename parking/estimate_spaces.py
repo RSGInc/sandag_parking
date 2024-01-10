@@ -8,14 +8,13 @@ import pandas as pd
 import statsmodels.formula.api as smf
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from . import base
+import base
 
 
 class EstimateStreetParking(base.Base):
-    
+
     def run_space_estimation(self):
         method = self.settings.get("space_estimation_method")
-        cache_dir = self.settings.get("cache_dir")
 
         # Read input
         mgra_gdf = self.mgra_data()
@@ -32,10 +31,9 @@ class EstimateStreetParking(base.Base):
 
         # estimated_spaces.to_csv(out_path)
         self.estimated_spaces_df = estimated_spaces
-        
+
         # append combined
         self.combined_df = self.combined_df.join(self.estimated_spaces_df)
-
 
     def aggregate_spaces_data(self, raw_parking_df):
         is_raw = any([x for x in raw_parking_df.columns if "on_street" in x])
@@ -123,8 +121,7 @@ class EstimateStreetParking(base.Base):
         )
 
         # Update crs
-        H.graph["crs"] = G.graph["crs"] # type: ignore
-
+        H.graph["crs"] = G.graph["crs"]
         self.cleaned_graph = H
 
         return H
@@ -136,13 +133,13 @@ class EstimateStreetParking(base.Base):
 
         # Current crs
         graph_crs = cleaned_graph.graph["crs"]
-        
-        edges_gdf = edges_gdf.set_crs(graph_crs).to_crs(mgra_gdf.crs.to_epsg()) # type: ignore
-        nodes_gdf = nodes_gdf.set_crs(graph_crs).to_crs(mgra_gdf.crs.to_epsg()) # type: ignore
+
+        edges_gdf = edges_gdf.set_crs(graph_crs).to_crs(mgra_gdf.crs.to_epsg())  # type: ignore
+        nodes_gdf = nodes_gdf.set_crs(graph_crs).to_crs(mgra_gdf.crs.to_epsg())  # type: ignore
 
         # Intersections have >2 segments
         assert isinstance(nodes_gdf, gpd.GeoDataFrame)
-        intnodes_gdf = nodes_gdf[nodes_gdf.street_count > 2] 
+        intnodes_gdf = nodes_gdf[nodes_gdf.street_count > 2]
 
         def intersect_zones(geo):
             # First clip search space
@@ -171,11 +168,11 @@ class EstimateStreetParking(base.Base):
         streets_gdf.index = mgra_gdf.index
         return streets_gdf
 
-    def get_streetdata(self, mgra_gdf):        
+    def get_streetdata(self, mgra_gdf):
         out_dir = self.settings.get("output_dir")
         cache_dir = self.settings.get("cache_dir")
         data_path = os.path.join(out_dir, 'aggregated_street_data.csv')
-        
+
         if not os.path.isfile(data_path):
             print("Aggregated street data")
             full_graph = self.get_network(mgra_gdf, cache_dir)
@@ -183,7 +180,7 @@ class EstimateStreetParking(base.Base):
 
             # Aggregate length and number of intersections per zone
             street_data = self.aggregate_streetdata(cleaned_graph, mgra_gdf)
-                        
+
             df = street_data[["length", "intcount"]]
             assert isinstance(df, pd.DataFrame)
             df.to_csv(data_path)

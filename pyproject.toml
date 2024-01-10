@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "sandag-parking"
+version = "0.1.0"
+description = ""
+authors = ["Nick Fournier <nick.fournier@rsginc.com>"]
+readme = "README.md"
+packages = [{include = "sandag_parking"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+geopandas = "^0.14.2"
+folium = "^0.15.1"
+alphashape = "^1.3.1"
+networkx = "^3.2.1"
+geonetworkx = "^0.5.3"
+tqdm = "^4.66.1"
+seaborn = "^0.13.1"
+osmnx = "^1.8.1"
+numpy = "^1.26.3"
+pyyaml = "^6.0.1"
+scikit-learn = "^1.3.2"
+statsmodels = "^0.14.1"
+pandas = "^2.1.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

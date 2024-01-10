@@ -5,21 +5,27 @@ import pandas as pd
 import geopandas as gpd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from . import base
+import base
+
 
 class ExpectedParkingCost(base.Base):
-    
+
     def run_expected_parking_cost(self):
         # Inputs
         out_dir = self.settings.get("output_dir")
         plots_dir = self.settings.get("plots_dir")
-                
+        cost_types = ["hourly", "daily", "monthly"]
+
         assert isinstance(self.districts_dict, dict), "Must run create_districts() first"
         districts_df = self.districts_dict['districts']
         mgra_gdf = self.mgra_data()
-        
+
         # Prepare data
-        costs_df = self.prepare_cost_table(self.imputed_parking_df, self.estimated_spaces_df, districts_df)
+        costs_df = self.prepare_cost_table(
+            self.imputed_parking_df,
+            self.estimated_spaces_df,
+            districts_df
+            )
         district_ids = districts_df[districts_df.is_prkdistrict].index.unique()
         geos = mgra_gdf.loc[district_ids].geometry
         max_dist = self.settings.get("walk_dist")
@@ -31,26 +37,28 @@ class ExpectedParkingCost(base.Base):
         print("Calculate expected costs")
         # Calculate expected cost for all zones in districts, all else are 0 cost
         exp_prkcosts = [
-            self.expected_parking_cost(x, costs_df, dist_df, walk_coef)
+            self.expected_parking_cost(x, costs_df, dist_df, walk_coef, cost_types)
             for x in tqdm(geos.index)
         ]
         # exp_prkcosts = pd.DataFrame(exp_prkcosts, index=geos.index, columns=['exp_prkcost'])
         exp_prkcosts_df = pd.DataFrame(exp_prkcosts).set_index("index")
 
+        # If zone is in the buffer region, set costs to 0
+        exp_prkcosts_df.loc[districts_df[districts_df.is_buffer].index, cost_types] = 0
         exp_prkcosts_df = exp_prkcosts_df.rename(
             columns={x: "exp_" + x for x in exp_prkcosts_df.columns}
         )
         exp_prkcosts_df = exp_prkcosts_df.reindex(mgra_gdf.index)
         exp_prkcosts_gdf = exp_prkcosts_df.join(mgra_gdf[["geometry"]])
         exp_prkcosts_df = exp_prkcosts_df.fillna(0)
-        
+
         # Map it
         self.map_costs_pngs(exp_prkcosts_gdf, plots_dir)
         self.map_costs(exp_prkcosts_gdf, plots_dir)
 
         # exp_prkcosts_df.to_csv(f"./{output_dir}/expected_parking_costs.csv")
         self.expected_parking_df = exp_prkcosts_df
-        
+
         # append combined
         self.combined_df = self.combined_df.join(self.expected_parking_df)
 
@@ -163,10 +171,19 @@ class ExpectedParkingCost(base.Base):
             gdf = exp_prkcost_gdf[["geometry", cost_type]].dropna().reset_index()
             gdf = gpd.GeoDataFrame(gdf)
 
+            attribution = (
+                '&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a>'
+                '&copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a>'
+                '&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a>'
+                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            )
+            tiles = "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
+
             # Plot paid parking zones
-            map = folium.Map(
+            mapplot = folium.Map(
                 location=[32.7521765494396, -117.11514883606573],
-                tiles="Stamen Toner",
+                tiles=tiles,
+                attr=attribution,
                 zoom_start=9,
             )
             folium.Choropleth(
@@ -180,12 +197,12 @@ class ExpectedParkingCost(base.Base):
                 line_opacity=0.5,  # line opacity (of the border) # type: ignore
                 legend_name=f"Expected {cost_type} parking costs",
             ).add_to(
-                map
+                mapplot
             )  # name on the legend color bar
-            map.save(f"{plots_dir}/parking_costs_{cost_type}.html")
-            
-    def map_costs_pngs(self, exp_prkcost_gdf, plots_dir):        
-                
+            mapplot.save(f"{plots_dir}/parking_costs_{cost_type}.html")
+
+    def map_costs_pngs(self, exp_prkcost_gdf, plots_dir):
+
         for cost_type in ["exp_hourly", "exp_daily", "exp_monthly"]:
             fig, ax = plt.subplots(1, 1, figsize=(8, 8))
             lab = cost_type[4:].capitalize()

@@ -1,13 +1,13 @@
 import numpy as np
 import pandas as pd
-from . import base
+import base
 
 
 class ReduceRawParkingData(base.Base):
     def run_reduction(self):
         print("Reducing raw parking data")
         self.reduced_parking_df = self.parking_reduction(self.raw_parking_df)
-        
+
         self.combined_df = self.lu_df.join(self.reduced_parking_df)
 
     def parking_reduction(self, raw_parking_df):

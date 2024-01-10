@@ -1,10 +1,13 @@
 # output
 mgra15
 cache
-data\mgra15
-output
+data/mgra15
+output/shapefiles
+output/*.csv
 
-*.html
+*.zip
+
+# *.html
 *.graphml
 
 # Byte-compiled / optimized / DLL files

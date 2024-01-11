@@ -1,5 +1,6 @@
 import os
 import folium
+from folium import plugins
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -51,8 +52,8 @@ class CreateDistricts(base.Base):
                 self.save_districts(geo)
 
             # Save district data to csv
-            self.map_districts_pngs(self.districts_dict, mgra_gdf, plots_dir)
             self.map_districts(self.districts_dict, mgra_gdf, plots_dir)
+            self.map_districts_pngs(self.districts_dict, mgra_gdf, plots_dir)
 
         # append combined
         assert isinstance(self.districts_df, pd.DataFrame), "districts_df must be a dataframe"
@@ -152,9 +153,11 @@ class CreateDistricts(base.Base):
         parking_districts["is_prkdistrict"] = False
         parking_districts["is_noprkspace"] = False
         parking_districts["is_buffer"] = False
+        parking_districts['is_hull'] = False
         parking_districts.loc[is_district, "is_prkdistrict"] = True
         parking_districts.loc[is_hull & is_nodata, "is_noprkspace"] = True
         parking_districts.loc[is_district & ~is_hull, "is_buffer"] = True
+        parking_districts.loc[is_hull, "is_hull"] = True
 
         # parking_type:
         # 1: parking constrained area: has cluster_id AND district_id
@@ -189,22 +192,107 @@ class CreateDistricts(base.Base):
         print("Plotting parking districts to html")
 
         # Plot paid parking zones
-        print(f"Saving paid zones cluster map to {plots_dir}/1_paid_zones.html")
-
-        attribution = (
-            '&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a>'
-            '&copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a>'
-            '&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a>'
-            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        print(f"Saving parking zone type map to {plots_dir}/parking_zone_types.html")
+        concave_hull_layer = folium.GeoJson(
+            data=parking_districts[
+                ~parking_districts.hull_id.isnull() & parking_districts.cluster_id.isnull()
+                ].geometry,
+            style_function=lambda x: {
+                "fillColor": "#000000",
+                "color": "#000000",
+                "weight": 0.1,
+                "fillOpacity": 0.75,
+            },
+            name="Concave Hull (with cost data)"
         )
-        tiles = "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
 
-        mapplot = folium.Map(
+        no_data_layer = folium.GeoJson(
+            data=parking_districts[
+                ~parking_districts.hull_id.isnull() & ~parking_districts.cluster_id.isnull()
+                ].geometry,
+            style_function=lambda x: {
+                "fillColor": "#e41a1c",
+                "color": "#e41a1c",
+                "weight": 0.1,
+                "fillOpacity": 0.5,
+                "name": "No data",
+            },
+            name="Concave Hull (no cost data)"
+        )
+
+        buffer_layer = folium.GeoJson(
+            data=parking_districts[
+                parking_districts.hull_id.isnull() & ~parking_districts.district_id.isnull()
+                ].geometry,
+            style_function=lambda x: {
+                "fillColor": "#000000",
+                "color": "#000000",
+                "weight": 0.1,
+                "fillOpacity": 0.25,
+            },
+            name="Concave Hull Buffer"
+        )
+        
+        # Add legend to the top right, make it fully expanded
+        # Label each layer with the name of the parking zone type
+        control_layer = folium.LayerControl(
+            position="topright",
+            collapsed=False,
+            overlay=True,
+            control=True,
+            show=True,
+            autoZIndex=True,
+            sortLayers=True,
+            name="Parking Zone Types",
+            )
+
+        # Create a custom legend for each layer
+        legend_html = '''
+            <div style="position: fixed; top: 150px; right: 10px; width: 225px; height: 70px;
+                        border:2px solid grey; z-index:9999; font-size:14px;
+                        background-color:white; opacity:0.8">
+                &nbsp; <i class="fa fa-square" style="color:#1a1a1a" op></i> Concave Hull (no cost data) &nbsp; <br>
+                &nbsp; <i class="fa fa-square" style="color:#ff8080"></i> Concave Hull (with cost data) &nbsp; <br>
+                &nbsp; <i class="fa fa-square" style="color:#bfbfbf"></i> Concave Hull Buffer &nbsp; <br>
+            </div>
+        '''
+
+        # Create a dictionary to store the map layers
+        map_layers = {
+            "Concave Hull (with cost data)": concave_hull_layer,
+            "Concave Hull (no cost data)": no_data_layer,
+            "Concave Hull Buffer": buffer_layer,
+            "Parking Zone Types": control_layer,
+            "MiniMap": plugins.MiniMap(),
+            "Legend": folium.Element(legend_html)
+        }
+
+        types_map = folium.Map(
             location=[32.7521765494396, -117.11514883606573],
-            tiles=tiles,
-            attr=attribution,
+            tiles='cartodbpositron',
             zoom_start=9,
         )
+
+        # Add the GeoJson layers to the map
+        for layer_name, layer in map_layers.items():
+            if layer_name == "Legend":
+                types_map.get_root().html.add_child(layer)  # type: ignore
+            else:
+                types_map.add_child(layer)
+
+        # Save map
+        types_map.save(f"{plots_dir}/parking_zone_types.html")
+
+        # Plot paid parking zones ------------------------------------------------------------
+        print(f"Saving paid zones cluster map to {plots_dir}/1_paid_zones.html")
+        # Incremental process map
+        mapplot = folium.Map(
+            location=[32.7521765494396, -117.11514883606573],
+            tiles='cartodbpositron',
+            # attr=attribution,
+            zoom_start=9,
+        )
+        # Folium chlorepleth map of parking clusters with all clusters colored red
         folium.Choropleth(
             data=parking_clusters.reset_index(),
             geo_data=parking_clusters.reset_index(),  # data
@@ -215,19 +303,30 @@ class CreateDistricts(base.Base):
             line_weight=0.1,  # line wight (of the border)      # type: ignore
             line_opacity=0.5,  # line opacity (of the border)   # type: ignore
             legend_name="Parking clusters",
-        ).add_to(
-            mapplot
-        )  # name on the legend color bar
+        ).add_to(mapplot)
+        # Plot the paid parking zones
+        # folium.GeoJson(
+        #     data=parking_clusters[parking_clusters.cluster_id >= 0].geometry,
+        #     style_function=lambda x: {
+        #         "fillColor": "#e41a1c",
+        #         "color": "#e41a1c",
+        #         "weight": 0.1,
+        #         "fillOpacity": 0.9
+        #     },
+        # ).add_to(mapplot)
+        # Save map
         mapplot.save(f"{plots_dir}/1_paid_zones.html")
 
-        # Plot concave hull areas
+        # Plot concave hull areas & the zones within them
         print(f"Saving concave hull map to {plots_dir}/2_concave_hull.html")
+
         folium.GeoJson(
             data=parking_hulls.geometry,
             style_function=lambda x: {
-                "fillColor": "#e41a1c",
-                "color": "#e41a1c",
+                "fillColor": "#000000",
+                "color": "#000000",
                 "weight": 0.5,
+                "fillOpacity": 0.5,
             },
         ).add_to(mapplot)
         mapplot.save(f"{plots_dir}/2_concave_hull.html")
@@ -243,8 +342,11 @@ class CreateDistricts(base.Base):
                 "fillColor": "#000000",
                 "color": "#000000",
                 "weight": 0.5,
+                "fillOpacity": 0.25,
             },
         ).add_to(mapplot)
+
+        # Save map
         mapplot.save(f"{plots_dir}/3_buffered_hull.html")
 
         # Plot parking district zones
@@ -255,8 +357,17 @@ class CreateDistricts(base.Base):
         gdf_districts = gpd.GeoSeries(gdf_districts).set_crs(mgra_gdf.crs.to_epsg())
         folium.GeoJson(
             data=gdf_districts,
-            style_function=lambda x: {"fillColor": "#000000", "weight": 0},
+            style_function=lambda x: {
+                "fillColor": "#000000",
+                "weight": 0,
+                "fillOpacity": 0.25,
+                },
         ).add_to(mapplot)
+
+        # Add legend in the top right
+        legend = plugins.MiniMap()
+        mapplot.add_child(legend)
+
         mapplot.save(f"{plots_dir}/4_parking_district.html")
 
     def map_districts_pngs(self, district_dict, mgra_gdf, plots_dir):

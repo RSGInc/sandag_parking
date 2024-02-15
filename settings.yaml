@@ -2,6 +2,7 @@ space_estimation_method: 'lm'
 cache_dir: "./cache"
 output_dir: "./output"
 plots_dir: "./output/plots"
+plots: false
 
 # Inputs
 inputs:
@@ -12,23 +13,27 @@ inputs:
 # Data input/outputs. These files serve as both inputs and output locations.
 
 outputs:
-  # reduced_parking_costs: "./output/reduced_parking_costs.csv"     # Output from reduction and also input to imputation step
+  # reduced_parking_df: "./output/reduced_parking_costs.csv"     # Output from reduction and also input to imputation step
   imputed_parking_df: "./output/imputed_parking_costs.csv"     # Output from imputation and also input to district creation
-  # district_data: "./output/district_data.csv"                     # Output from district creation and also input to aggregation
+  districts_df: "./output/district_data.csv"                     # Output from district creation and also input to aggregation
   # aggregated_street_data: "./output/aggregated_street_data.csv"   # Output from network data aggregation and input to space estimation
-  # estimated_spaces_data: "./output/estimated_spaces.csv"          # Output from space estimation
-  expected_parking_df: './output/final_parking_data.csv'                  # Output
+  estimated_spaces_df: "./output/estimated_spaces.csv"          # Output from space estimation
+  expected_parking_df: './output/expected_parking_data.csv'       # Output
+  combined_df: './output/final_parking_data.csv'                  # Output
+
 
 # If you want to rename columns, you can do so here.
 # Otherwise it return all columns (includes land_use columns))
-# output_columns: 
-  # expected_parking_df:  # The data frame that is output from the model
-  #   mgra:       # column name: optional new column name
-  #   exp_hourly:
-  #   exp_daily:
-  #   exp_monthly:
-  #   parking_type:
-  #   spaces: parking_spaces
+output_columns: 
+  expected_parking_df:  # The data frame that is output from the model
+    # mgra:  # Index included by default
+    # column name: optional new column name
+    exp_hourly:
+    exp_daily:
+    exp_monthly:
+    parking_type:
+    spaces: parking_spaces
+    estimated_spaces:
 
 
 # Parameters

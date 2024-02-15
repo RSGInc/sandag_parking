@@ -168,6 +168,10 @@ class ExpectedParkingCost(base.Base):
         return expected_cost
 
     def map_costs(self, exp_prkcost_gdf, plots_dir):
+
+        if not self.settings.get("plots"):
+            return
+
         for cost_type in ["exp_hourly", "exp_daily", "exp_monthly"]:
             gdf = exp_prkcost_gdf[["geometry", cost_type]].dropna().reset_index()
             gdf = gpd.GeoDataFrame(gdf)
@@ -203,6 +207,9 @@ class ExpectedParkingCost(base.Base):
             mapplot.save(f"{plots_dir}/parking_costs_{cost_type}.html")
 
     def map_costs_pngs(self, exp_prkcost_gdf, plots_dir):
+
+        if not self.settings.get("plots"):
+            return
 
         for cost_type in ["exp_hourly", "exp_daily", "exp_monthly"]:
             fig, ax = plt.subplots(1, 1, figsize=(8, 8))

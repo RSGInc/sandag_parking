@@ -172,6 +172,10 @@ class ImputeParkingCosts(base.Base):
         return imputed_df
 
     def plot_imputation(self, reduced_df, imputed_df, models):
+
+        if not self.settings.get("plot"):
+            return
+
         # Make some simple models
         # models.keys()
         xy_list = {

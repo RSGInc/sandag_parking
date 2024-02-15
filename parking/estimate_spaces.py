@@ -228,6 +228,10 @@ class EstimateStreetParking(base.Base):
         return result
 
     def plot_distributions(self, model_df, plot_dir):
+
+        if not self.settings.get("plots"):
+            return
+
         fig, axes = plt.subplots(3, 3, figsize=(12, 8))
         fig.subplots_adjust(hspace=0.3, wspace=0.25)
         plot_vars = [
@@ -243,6 +247,10 @@ class EstimateStreetParking(base.Base):
         fig.savefig(f"{plot_dir}/parkingspace_distributions.png")
 
     def plot_reg(self, model_df, plot_dir):
+
+        if not self.settings.get("plots"):
+            return
+
         i, cols = 0, [
             "length",
             "intcount",
@@ -265,6 +273,10 @@ class EstimateStreetParking(base.Base):
         fig.savefig(f"{plot_dir}/parkingspace_regplot.png")
 
     def plot_predictions(self, model, model_df, plot_dir):
+
+        if not self.settings.get("plots"):
+            return
+
         yactual = model_df.spaces.values
         ypred_lm = model.predict(model_df)
         ypred_calc = self.calculate_spaces(model_df.length, model_df.intcount)

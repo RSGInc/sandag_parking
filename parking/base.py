@@ -111,7 +111,7 @@ class Base:
         """
         # Read existing data
         for df_name, path in self.settings.get('outputs').items():
-            if os.path.exists(path):
+            if os.path.exists(path) and df_name != "combined_df":
                 setattr(self, df_name, pd.read_csv(path))
         return
 

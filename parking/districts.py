@@ -198,6 +198,10 @@ class CreateDistricts(base.Base):
         parking_buffered_hulls = district_dict["buffered_hulls"]
         parking_clusters = district_dict["clusters"]
 
+        # Check if plots is enabled
+        if not self.settings.get("plots"):
+            return
+
         print("Plotting parking districts to html")
 
         # Plot paid parking zones
@@ -384,6 +388,9 @@ class CreateDistricts(base.Base):
         parking_hulls = district_dict["hulls"]
         parking_buffered_hulls = district_dict["buffered_hulls"]
         parking_clusters = district_dict["clusters"]
+
+        if not self.settings.get("plots"):
+            return
 
         print("Plotting parking districts to PNGs")
 

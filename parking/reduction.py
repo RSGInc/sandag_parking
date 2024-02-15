@@ -8,7 +8,8 @@ class ReduceRawParkingData(base.Base):
         print("Reducing raw parking data")
         self.reduced_parking_df = self.parking_reduction(self.raw_parking_df)
 
-        self.combined_df = self.lu_df.join(self.reduced_parking_df)
+        # self.combined_df = self.lu_df.join(self.reduced_parking_df)
+        self.update_combined_df("reduced_parking_df", self.reduced_parking_df)
 
     def parking_reduction(self, raw_parking_df):
         # Free parking spaces

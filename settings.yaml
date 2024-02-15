@@ -13,11 +13,11 @@ inputs:
 
 outputs:
   # reduced_parking_costs: "./output/reduced_parking_costs.csv"     # Output from reduction and also input to imputation step
-  # imputed_parking_costs: "./output/imputed_parking_costs.csv"     # Output from imputation and also input to district creation
+  imputed_parking_df: "./output/imputed_parking_costs.csv"     # Output from imputation and also input to district creation
   # district_data: "./output/district_data.csv"                     # Output from district creation and also input to aggregation
   # aggregated_street_data: "./output/aggregated_street_data.csv"   # Output from network data aggregation and input to space estimation
   # estimated_spaces_data: "./output/estimated_spaces.csv"          # Output from space estimation
-  combined_df: './output/final_parking_data.csv'                  # Output
+  expected_parking_df: './output/final_parking_data.csv'                  # Output
 
 output_columns: 
   combined_df:  # The data frame that is output from the model

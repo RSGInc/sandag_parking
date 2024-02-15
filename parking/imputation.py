@@ -10,7 +10,6 @@ import base
 
 class ImputeParkingCosts(base.Base):
     imputed_parking_df = pd.DataFrame()
-    combined_df = pd.DataFrame()
     lm_res = {}
 
     def run_imputation(self):
@@ -32,7 +31,9 @@ class ImputeParkingCosts(base.Base):
 
         # append combined
         new_cols = list(set(self.imputed_parking_df.columns) - set(self.reduced_parking_df.columns))
-        self.combined_df = self.combined_df.join(self.imputed_parking_df[new_cols])
+
+        # self.combined_df = self.combined_df.join(self.imputed_parking_df[new_cols])
+        self.update_combined_df("imputed_parking_df", self.imputed_parking_df[new_cols])
 
     # Estimate cost conversion model
     def linear_model(self, reduced_df):

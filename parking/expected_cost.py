@@ -60,7 +60,8 @@ class ExpectedParkingCost(base.Base):
         self.expected_parking_df = exp_prkcosts_df
 
         # append combined
-        self.combined_df = self.combined_df.join(self.expected_parking_df)
+        # self.combined_df = self.combined_df.join(self.expected_parking_df)
+        self.update_combined_df("expected_parking_df", self.expected_parking_df, include_lu_cols=True)
 
         # return exp_prkcosts_gdf
 

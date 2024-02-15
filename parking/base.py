@@ -13,6 +13,9 @@ class Base:
     districts_dict = None
     combined_df = None
 
+    # Columns in the "combined_df" at the end of the process
+    step_cols = {}
+
     def __init__(self):
         with open("settings.yaml", "r") as stream:
             try:
@@ -57,6 +60,9 @@ class Base:
 
         self.raw_parking_df = pd.read_csv(raw_path).set_index("mgra")
         self.lu_df = pd.read_csv(lu_path).set_index("mgra")
+        self.update_combined_df("landuse_df", self.lu_df)
+
+        self.read_existing_data()
 
     def mgra_data(self):
         if self.mgra_gdf is None:
@@ -76,12 +82,56 @@ class Base:
 
         return self.mgra_gdf
 
+    def update_combined_df(self, model_step: str, df: pd.DataFrame, include_lu_cols: bool = False):
+        """
+        Update the combined dataframe with a new dataframe
+        """
+        if self.combined_df is None or self.combined_df.empty:
+            self.combined_df = df
+        else:
+            self.combined_df = self.combined_df.join(df)
+
+        # Save the columns for this step
+        if include_lu_cols:
+            self.step_cols[model_step] = self.combined_df.columns
+        else:
+            # Append the last step columns except for the land use columns
+            prev_cols = []
+            for k, v in self.step_cols.items():
+                if k != "landuse_df":
+                    prev_cols += v
+
+            self.step_cols[model_step] = prev_cols + list(df.columns)
+
+        return
+
+    def read_existing_data(self):
+        """
+        Read existing data from the output directory if it exists
+        """
+        # Read existing data
+        for df_name, path in self.settings.get('outputs').items():
+            if os.path.exists(path):
+                setattr(self, df_name, pd.read_csv(path))
+        return
+
     def write_output(self):
 
         output_cols = self.settings.get('output_columns')
 
         for df_name, out_path in self.settings.get('outputs').items():
-            df = getattr(self, df_name).reset_index()
+
+            # Check if the dataframe is in the combined dataframe
+            assert isinstance(self.combined_df, pd.DataFrame)
+
+            if df_name in self.step_cols.keys():
+                df = self.combined_df[self.step_cols[df_name]]
+
+            elif hasattr(self, df_name):
+                df = getattr(self, df_name).reset_index()
+
+            else:
+                raise ValueError(f"Dataframe {df_name} not found")
 
             if df_name in output_cols.keys():
                 # Format column names

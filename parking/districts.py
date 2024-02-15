@@ -59,10 +59,19 @@ class CreateDistricts(base.Base):
         assert isinstance(self.districts_df, pd.DataFrame), "districts_df must be a dataframe"
         assert isinstance(self.combined_df, pd.DataFrame), "combined_df must be a dataframe"
 
-        self.districts_df.to_csv(os.path.join(out_dir, 'districts.csv'))
-        self.combined_df = self.combined_df.join(self.districts_df)
+        # self.districts_df.to_csv(os.path.join(out_dir, 'districts.csv'))
+
+        # self.combined_df = self.combined_df.join(self.districts_df)
+        self.update_combined_df("districts_df", self.districts_df)
 
     def parking_districts(self, imputed_df, mgra_gdf, max_dist):
+
+        # Check that mgra is the index
+        if imputed_df.index.name != "mgra" and "mgra" in imputed_df.columns:
+            imputed_df.set_index("mgra", inplace=True)
+
+        assert imputed_df.index.name == "mgra", "Index must be MGRA"
+
         # 1. Spatially cluster zones with paid parking
         paid_zones = mgra_gdf.loc[
             imputed_df[imputed_df.paid_spaces > 0].index, ["TAZ", "geometry"]
@@ -232,7 +241,7 @@ class CreateDistricts(base.Base):
             },
             name="Concave Hull Buffer"
         )
-        
+
         # Add legend to the top right, make it fully expanded
         # Label each layer with the name of the parking zone type
         control_layer = folium.LayerControl(

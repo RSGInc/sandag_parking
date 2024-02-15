@@ -33,7 +33,8 @@ class EstimateStreetParking(base.Base):
         self.estimated_spaces_df = estimated_spaces
 
         # append combined
-        self.combined_df = self.combined_df.join(self.estimated_spaces_df)
+        # self.combined_df = self.combined_df.join(self.estimated_spaces_df)
+        self.update_combined_df("estimated_spaces_df", self.estimated_spaces_df)
 
     def aggregate_spaces_data(self, raw_parking_df):
         is_raw = any([x for x in raw_parking_df.columns if "on_street" in x])

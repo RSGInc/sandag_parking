@@ -38,8 +38,8 @@ walk_coef: -0.3
 # For example, if you have parking data cleaned up already, it can be fed into the 'create_districts' model.
 # Or if you manually estimated spaces, you can skip that model too.
 models:
-  - run_reduction
-  - run_imputation
+  # - run_reduction
+  # - run_imputation
   - create_districts
   - run_space_estimation
   - run_expected_parking_cost

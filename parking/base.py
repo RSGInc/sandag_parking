@@ -139,6 +139,6 @@ class Base:
                 df = df.rename(columns=renaming)[renaming.values()]
                 df.fillna(0, inplace=True)
 
-            df.to_csv(out_path, index=False)
+            df.to_csv(out_path, index=True)
 
         return

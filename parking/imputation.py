@@ -121,7 +121,8 @@ class ImputeParkingCosts(base.Base):
         model_df = reduced_df.copy()
 
         # Remove 999s
-        model_df[model_df > 999] = None
+        # model_df[model_df > 999] = None
+        # df = model_df[model_df > 999]
         model_df = model_df.drop(
             columns=[x for x in model_df.columns if "imputed" in x]
         )

@@ -51,6 +51,7 @@ class ExpectedParkingCost(base.Base):
         exp_prkcosts_df = exp_prkcosts_df.reindex(mgra_gdf.index)
         exp_prkcosts_gdf = exp_prkcosts_df.join(mgra_gdf[["geometry"]])
         exp_prkcosts_df = exp_prkcosts_df.fillna(0)
+        exp_prkcosts_df['spaces_for_calculation'] = costs_df['spaces_for_calculation']
 
         # Map it
         self.map_costs_pngs(exp_prkcosts_gdf, plots_dir)
@@ -95,9 +96,20 @@ class ExpectedParkingCost(base.Base):
             parking_df = parking_df.drop(columns=["hourly", "daily", "monthly"])
             parking_df = parking_df.rename(columns=imputed_names)
 
+        # Create combined data frame with combined given/estimated spaces
+        costs_df = spaces_df.join(parking_df.drop(columns="spaces"))
+
+        # Known spaces
+        _known = ~costs_df.spaces.isna()
+        costs_df.loc[_known, 'spaces_for_calculation'] = costs_df.loc[_known, 'spaces']
+        costs_df.loc[~_known, 'spaces_for_calculation'] = costs_df.loc[~_known, 'estimated_spaces']
+
+        # Drop old columns to ensure it's clean
+        costs_df = costs_df.drop(columns=["spaces", "estimated_spaces"])
+
         # Estimated spaces
-        parking_df = parking_df.drop(columns="spaces")
-        spaces_df = spaces_df.rename(columns={"estimated_spaces": "spaces"})
+        # parking_df = parking_df.drop(columns="spaces")
+        # spaces_df = spaces_df.rename(columns={"estimated_spaces": "spaces"})
 
         # Remove zones outside district or no supply
         # _districts = districts_df.loc[
@@ -113,14 +125,14 @@ class ExpectedParkingCost(base.Base):
 
         # Final costs dataframe
         # costs_df = _districts.join(spaces_df).join(costs_df)
-        costs_df = spaces_df.join(parking_df)
+        # costs_df = spaces_df.join(parking_df)
         costs_df.index.name = "mgra"
-        costs_df = costs_df[["spaces", "hourly", "daily", "monthly"]]
+        costs_df = costs_df[["spaces_for_calculation", "hourly", "daily", "monthly"]]
 
         # Fill in 0 for non paid zones
         costs_df = costs_df.fillna(0)
         # Set no parking zones to 0 supply
-        costs_df.loc[noprk_zones.index, "spaces"] = 0
+        costs_df.loc[noprk_zones.index, "spaces_for_calculation"] = 0
 
         assert not costs_df.index.duplicated().any()
 
@@ -145,7 +157,7 @@ class ExpectedParkingCost(base.Base):
                 dest_df = dest_df.reset_index().set_index("OZONE").join(costs_df)
 
                 # Natural exponent -- compute once
-                expo = np.exp(dest_df.dist.values * walk_coef) * dest_df.spaces.values
+                expo = np.exp(dest_df.dist.values * walk_coef) * dest_df.spaces_for_calculation.values
 
                 # numerator = sum(e^{dist * \beta_{dist}} * spaces * cost)
                 # denominator = sum(e^{dist * \beta_{dist}} * spaces)

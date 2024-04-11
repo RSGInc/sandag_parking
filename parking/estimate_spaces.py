@@ -30,11 +30,11 @@ class EstimateStreetParking(base.Base):
         )
 
         # estimated_spaces.to_csv(out_path)
-        self.estimated_spaces_df = estimated_spaces
+        self.estimated_spaces_df = parking_df.join(estimated_spaces, how="outer")
 
         # append combined
         # self.combined_df = self.combined_df.join(self.estimated_spaces_df)
-        self.update_combined_df("estimated_spaces_df", self.estimated_spaces_df)
+        self.update_combined_df("estimated_spaces_df", self.estimated_spaces_df.drop(columns='spaces'))
 
     def aggregate_spaces_data(self, raw_parking_df):
         is_raw = any([x for x in raw_parking_df.columns if "on_street" in x])
@@ -58,14 +58,14 @@ class EstimateStreetParking(base.Base):
         spaces_df = spaces_df[(spaces_df.spaces > 0) & (spaces_df.length > 0)]
 
         # Impute parking for only missing zones
-        street_data["estimated_spaces"] = self.predict_spaces(
-            street_data, parking_df, mgra_gdf, land_use
-        )
-
         if method != "lm":
             street_data["estimated_spaces"] = self.calculate_spaces(
                 street_data.length, street_data.intcount
             ).astype(int)
+        else:
+            street_data["estimated_spaces"] = self.predict_spaces(
+                street_data, parking_df, mgra_gdf, land_use
+            )
 
         street_data.loc[spaces_df.index, "estimated_spaces"] = spaces_df.spaces.astype(
             int

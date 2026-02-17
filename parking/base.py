@@ -53,32 +53,46 @@ class Base:
         self.street_data = None
         self.mgra_gdf = None
 
+        # Column mapping (input column name → internal column name)
+        column_mapping = self.settings.get("column_mapping", {})
+
         # Input data
         inputs = self.settings.get('inputs')
-        raw_path = inputs.get("raw_parking_inventory")
         lu_path = inputs.get("land_use")
 
-        self.raw_parking_df = pd.read_csv(raw_path).set_index("mgra")
-        self.lu_df = pd.read_csv(lu_path).set_index("mgra")
+        # Read land use with column mapping applied
+        self.lu_df = pd.read_csv(lu_path).rename(columns=column_mapping)
+        if "mgra" in self.lu_df.columns:
+            self.lu_df = self.lu_df.set_index("mgra")
         self.update_combined_df("landuse_df", self.lu_df)
+
+        # Read raw parking inventory (optional – not needed when parking
+        # costs are already embedded in the land use file)
+        raw_path = inputs.get("raw_parking_inventory")
+        if raw_path and os.path.exists(raw_path):
+            self.raw_parking_df = pd.read_csv(raw_path).rename(columns=column_mapping)
+            if "mgra" in self.raw_parking_df.columns:
+                self.raw_parking_df = self.raw_parking_df.set_index("mgra")
+        else:
+            self.raw_parking_df = None
 
         self.read_existing_data()
 
     def mgra_data(self):
         if self.mgra_gdf is None:
-            print("Reading MGRA shapefile data")
-            path = self.settings.get("geometry")
+            print("Reading MAZ shapefile data")
+            path = self.settings.get("inputs", {}).get("geometry")
             cached_path = os.path.join(
-                self.settings.get("cache_dir"), "cached_mgra.shp"
+                self.settings.get("cache_dir"), "cached_maz.shp"
             )
 
             if not os.path.isfile(cached_path):
-                self.mgra_gdf = gpd.read_file(path).set_index("MGRA")[
+                self.mgra_gdf = gpd.read_file(path).rename(columns={"MAZ_NO": "MAZ", 'TAZ_NO': "TAZ"}).set_index("MAZ")[
                     ["TAZ", "geometry"]
                 ]
                 self.mgra_gdf.to_file(cached_path)
             else:
-                self.mgra_gdf = gpd.read_file(cached_path).set_index("MGRA")
+                self.mgra_gdf = gpd.read_file(cached_path).set_index("MAZ")
 
         return self.mgra_gdf
 

@@ -8,7 +8,7 @@ import pandas as pd
 import statsmodels.formula.api as smf
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-import base
+from . import base
 
 
 class EstimateStreetParking(base.Base):
@@ -186,7 +186,7 @@ class EstimateStreetParking(base.Base):
             assert isinstance(df, pd.DataFrame)
             df.to_csv(data_path)
         else:
-            street_data = pd.read_csv(data_path).set_index("MGRA")
+            street_data = pd.read_csv(data_path).set_index("MAZ")
 
         self.street_data = street_data
 

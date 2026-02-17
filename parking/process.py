@@ -1,11 +1,13 @@
-from reduction import ReduceRawParkingData
-from imputation import ImputeParkingCosts
-from districts import CreateDistricts
-from estimate_spaces import EstimateStreetParking
-from expected_cost import ExpectedParkingCost
+from .preprocess import PreprocessData
+from .reduction import ReduceRawParkingData
+from .imputation import ImputeParkingCosts
+from .districts import CreateDistricts
+from .estimate_spaces import EstimateStreetParking
+from .expected_cost import ExpectedParkingCost
 
 
 class ParkingProcessing(
+    PreprocessData,
     ReduceRawParkingData,
     ImputeParkingCosts,
     CreateDistricts,

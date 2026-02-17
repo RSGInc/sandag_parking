@@ -1,14 +1,14 @@
-space_estimation_method: 'lm'
+space_estimation_method: 'calc'
 cache_dir: "./cache"
 output_dir: "./output"
 plots_dir: "./output/plots"
-plots: false
+plots: True
 
 # Inputs
 inputs:
-  land_use: "./data/land_use.csv"
-  geometry: "./data/mgra15/mgra15.shp"
-  raw_parking_inventory: "./data/mgra_parking_inventory.csv"
+  land_use: "C:/projects/odot_joint_estimation/pnr/SimOR/resident/model_data/metro/data_full/raw/land_use.csv"
+  geometry: "C:/projects/odot_joint_estimation/pnr/SimOR/resident/model_data/metro/data_full/raw/MAZs_22333_2025-11-20.shp"
+  # raw_parking_inventory: "./data/mgra_parking_inventory.csv"  # Optional: only needed for SANDAG-style separate parking inventory
 
 # Data input/outputs. These files serve as both inputs and output locations.
 
@@ -36,6 +36,29 @@ output_columns:
     estimated_spaces:
     spaces:
 
+# Column mapping from input file columns to internal column names.
+# Format:  input_column_name: internal_column_name
+# Only columns that need renaming should be listed here.
+#
+# Notes on Metro data fields:
+#   PRKCST_HR  – on-street hourly parking cost
+#   PRKCST_DAY – structured (off-street) daily parking cost
+#   PRKCST_MNTH– structured (off-street) monthly parking cost
+#   PRKSPACES  – structured (off-street) parking spaces only
+#                (on-street spaces are unknown and will be estimated)
+column_mapping:
+  MAZ_NO: mgra
+  TAZ_NO: TAZ
+  PRKCST_HR: hourly
+  PRKCST_DAY: daily
+  PRKCST_MNTH: monthly
+  PRKSPACES: spaces
+  EMP_TOTAL: emp_total
+
+# Map / plot display settings
+map_center: [45.52, -122.68]   # Portland, OR
+map_zoom: 12
+map_tiles: 'cartodbpositron'
 
 # Parameters
 walk_dist: 0.5
@@ -46,7 +69,8 @@ walk_coef: -0.3
 # For example, if you have parking data cleaned up already, it can be fed into the 'create_districts' model.
 # Or if you manually estimated spaces, you can skip that model too.
 models:
-  - run_reduction
+  - run_preprocessing
+  # - run_reduction  # Use run_preprocessing instead when input has aggregated parking costs
   - run_imputation
   - create_districts
   - run_space_estimation

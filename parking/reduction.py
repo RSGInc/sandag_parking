@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import base
+from . import base
 
 
 class ReduceRawParkingData(base.Base):

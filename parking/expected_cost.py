@@ -5,7 +5,7 @@ import pandas as pd
 import geopandas as gpd
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-import base
+from . import base
 
 
 class ExpectedParkingCost(base.Base):
@@ -188,26 +188,17 @@ class ExpectedParkingCost(base.Base):
             gdf = exp_prkcost_gdf[["geometry", cost_type]].dropna().reset_index()
             gdf = gpd.GeoDataFrame(gdf)
 
-            attribution = (
-                '&copy; <a href="https://www.stadiamaps.com/" target="_blank">Stadia Maps</a>'
-                '&copy; <a href="https://www.stamen.com/" target="_blank">Stamen Design</a>'
-                '&copy; <a href="https://openmaptiles.org/" target="_blank">OpenMapTiles</a>'
-                '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            )
-            tiles = "https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png"
-
             # Plot paid parking zones
             mapplot = folium.Map(
-                location=[32.7521765494396, -117.11514883606573],
-                tiles=tiles,
-                attr=attribution,
-                zoom_start=9,
+                location=self.settings.get("map_center", [45.52, -122.68]),
+                tiles=self.settings.get("map_tiles", "cartodbpositron"),
+                zoom_start=self.settings.get("map_zoom", 10),
             )
             folium.Choropleth(
                 data=gdf,
                 geo_data=gdf,  # data
-                columns=["MGRA", cost_type],  # [key, value]
-                key_on="feature.properties.MGRA",
+                columns=["MAZ", cost_type],  # [key, value]
+                key_on="feature.properties.MAZ",
                 fill_column=cost_type,
                 fill_color="YlOrRd",  # cmap
                 line_weight=0.1,  # line wight (of the border) # type: ignore
@@ -228,8 +219,11 @@ class ExpectedParkingCost(base.Base):
             lab = cost_type[4:].capitalize()
             gdf = exp_prkcost_gdf[["geometry", cost_type]].dropna().reset_index()
             gdf = gpd.GeoDataFrame(gdf)
-            # ax.axis('off')
-            ax.set_xlim(np.array([6.26, 6.31]) * 1e6)  # type: ignore
-            ax.set_ylim(np.array([1.82, 1.86]) * 1e6)  # type: ignore
+            # Compute plot bounds from the data with a 5% margin
+            bounds = gdf.total_bounds  # [minx, miny, maxx, maxy]
+            dx = (bounds[2] - bounds[0]) * 0.05
+            dy = (bounds[3] - bounds[1]) * 0.05
+            ax.set_xlim(bounds[0] - dx, bounds[2] + dx)
+            ax.set_ylim(bounds[1] - dy, bounds[3] + dy)
             gdf.plot(column=cost_type, alpha=0.5, ax=ax, legend=True).set_title(f'{lab} Expected Parking Costs')
             fig.savefig(f"{plots_dir}/parking_costs_{cost_type}.png")

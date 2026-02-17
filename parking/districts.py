@@ -8,7 +8,7 @@ import alphashape
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from sklearn.cluster import AgglomerativeClustering
-import base
+from . import base
 
 
 class CreateDistricts(base.Base):
@@ -281,9 +281,9 @@ class CreateDistricts(base.Base):
         }
 
         types_map = folium.Map(
-            location=[32.7521765494396, -117.11514883606573],
-            tiles='cartodbpositron',
-            zoom_start=9,
+            location=self.settings.get("map_center", [45.52, -122.68]),
+            tiles=self.settings.get("map_tiles", "cartodbpositron"),
+            zoom_start=self.settings.get("map_zoom", 10),
         )
 
         # Add the GeoJson layers to the map
@@ -300,10 +300,9 @@ class CreateDistricts(base.Base):
         print(f"Saving paid zones cluster map to {plots_dir}/1_paid_zones.html")
         # Incremental process map
         mapplot = folium.Map(
-            location=[32.7521765494396, -117.11514883606573],
-            tiles='cartodbpositron',
-            # attr=attribution,
-            zoom_start=9,
+            location=self.settings.get("map_center", [45.52, -122.68]),
+            tiles=self.settings.get("map_tiles", "cartodbpositron"),
+            zoom_start=self.settings.get("map_zoom", 10),
         )
         # Folium chlorepleth map of parking clusters with all clusters colored red
         folium.Choropleth(
@@ -394,14 +393,19 @@ class CreateDistricts(base.Base):
 
         print("Plotting parking districts to PNGs")
 
+        # Compute plot bounds from the data with a 5% margin
+        bounds = mgra_gdf.total_bounds  # [minx, miny, maxx, maxy]
+        dx = (bounds[2] - bounds[0]) * 0.05
+        dy = (bounds[3] - bounds[1]) * 0.05
+
         print(f"Saving parking district map to {plots_dir}/4_parking_district.png")
         fig, axes = plt.subplots(2, 2, figsize=(8, 7))
         for axrow in axes:
             for ax in axrow:
                 ax.axis('off')
                 mgra_gdf.geometry.plot(color='white', edgecolor='k', linewidth=0.125, ax=ax)
-                ax.set_xlim(np.array([6.26, 6.31]) * 1e6)
-                ax.set_ylim(np.array([1.82, 1.86])*1e6)
+                ax.set_xlim(bounds[0] - dx, bounds[2] + dx)
+                ax.set_ylim(bounds[1] - dy, bounds[3] + dy)
         parking_clusters.plot(
             column='cluster_id', alpha=0.5, ax=axes[0][0], legend=False
             ).set_title('Parking zone clusters')

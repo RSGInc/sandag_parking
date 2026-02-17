@@ -5,7 +5,7 @@ import scipy
 import matplotlib.pyplot as plt
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer
-import base
+from . import base
 
 
 class ImputeParkingCosts(base.Base):
@@ -105,7 +105,6 @@ class ImputeParkingCosts(base.Base):
     # except for all cost columns and makes use of land use data
     def MICE_imputation(self, reduced_df, lu_df):
         # Step 2: Imputation
-        all(lu_df.acres == lu_df.effective_acres)
 
         # Join landuse to data
         # model_df = reduced_df.join(
@@ -127,17 +126,23 @@ class ImputeParkingCosts(base.Base):
             columns=[x for x in model_df.columns if "imputed" in x]
         )
 
+        # Only impute cost columns — other columns (spaces, paid_spaces,
+        # free_spaces) are not cost data and may be all-NaN which causes
+        # IterativeImputer to drop them, leading to shape mismatches.
+        cost_cols = ["hourly", "daily", "monthly"]
+        impute_df = model_df[cost_cols].copy()
+
         # Define imputer
         # imputer = SimpleImputer(missing_values=np.nan, strategy='mean')
         imputer = IterativeImputer(random_state=100, max_iter=100, min_value=0)
         # imputer = KNNImputer(n_neighbors=5, weights='distance')
-        imputer.fit(model_df)
+        imputer.fit(impute_df)
 
         # Impute and format the results
         imputed_df = pd.DataFrame(
-            data=imputer.transform(model_df),
-            index=model_df.index,
-            columns=model_df.columns,
+            data=imputer.transform(impute_df),
+            index=impute_df.index,
+            columns=impute_df.columns,
         )
         imputed_df = imputed_df.rename(
             columns={k: k + "_imputed" for k in ["hourly", "daily", "monthly"]}

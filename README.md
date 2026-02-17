@@ -1,154 +1,228 @@
 # sandag-parking
 
-This script prepares expected parking cost data for SANDAG MGRA series 15 zones. 
+This package prepares expected parking cost data for activity-based travel demand models. Originally developed for SANDAG MGRA Series 15 zones, it has been adapted to work with **Metro Portland MAZ** data through a configurable preprocessing pipeline and column mapping.
 
-The processing includes the following steps organized into separate python modules:
-1. `reductions.py`: Reduce/organize dataset and estimate model fit
-2. `imputation.py`: Impute missing values
-3. `districts.py`: Find the parking districts
-4. `estimate_spaces.py`: Estimate spaces
-5. `expected_cost.py`: Calculate expected costs
+## Setup
 
-These modules inherit a few helper functions from `base.py`, which are all then inherited and run with `process.py` to provide a single point of entry to the program. The script can be controlled with `settings.yaml`, where users specify inputs, outputs, parameters, and which models to run. 
+### Requirements
+- Python >= 3.10
+- [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
-The processing script can be run by either running the `run.py` script where users may wish to add scripting, or through command line by navigating to the directory containing the "parking" folder and executing the line:
+### Installation
+```bash
+uv sync
+```
 
-```python -m parking```
+### Running
+```bash
+# Via run.py
+python run.py
 
-# Analysis
+# Or as a module
+python -m parking
+```
 
-## Reduction of raw parking inventory data
+## Configuration
 
-#### Values
-- Spaces
-- Cost
+All settings are controlled via `settings.yaml`:
 
-#### Segments
-- pricing:
-  - paid
-  - free
-- rate:
-  - hourly
-  - daily
-  - monthly
-- location:
-  - on-street
-  - off-street
-- ownership:
-  - public
-  - private
-- tod:
-  - business hours
-  - non-business hours
+| Setting | Description |
+|---|---|
+| `inputs.land_use` | Path to the land use CSV |
+| `inputs.geometry` | Path to the zone shapefile |
+| `inputs.raw_parking_inventory` | *(Optional)* Path to a separate parking inventory CSV (SANDAG-style) |
+| `column_mapping` | Renames input columns to internal names (e.g., `PRKCST_HR` → `hourly`) |
+| `space_estimation_method` | `'calc'` (formulaic) or `'lm'` (regression) |
+| `walk_dist` | Maximum walking distance in miles (default: 0.5) |
+| `walk_coef` | Walk distance decay coefficient (default: -0.3) |
+| `map_center` | `[lat, lon]` for Folium map centering |
+| `map_zoom` | Default zoom level for interactive maps |
+| `map_tiles` | Tile provider for Folium maps (e.g., `'cartodbpositron'`) |
+| `models` | Ordered list of processing steps to run |
 
-Not all segments fully cross with eachother, should collapose some segments to make a flattened data frame.
+### Column Mapping
 
-### Desired structure
-We do not need all the different segments. Just a dataframe with the following fields for each MGRA:
+The `column_mapping` section in `settings.yaml` translates input CSV column names to the internal names the model expects. For Metro data:
 
-- Weighted average cost of private and public parking, assuming weight is n-spaces $= \frac{(n_{private} * cost_{private} + n_{public} * cost_{public})}{n_{private} + n_{public}}$
-- Sum of public and private spaces
-- Max cost for business hours or after hours
+```yaml
+column_mapping:
+  MAZ_NO: mgra       # Zone identifier
+  TAZ_NO: TAZ        # TAZ identifier
+  PRKCST_HR: hourly  # On-street hourly parking cost
+  PRKCST_DAY: daily  # Structured (off-street) daily cost
+  PRKCST_MNTH: monthly  # Structured (off-street) monthly cost
+  PRKSPACES: spaces  # Structured (off-street) parking spaces
+  EMP_TOTAL: emp_total
+```
 
-### Some assumptions
-- Collapse on-street/off-street segment
-  - assuming all on-street are "public"
-  - assume that off-street residential are "free" 
-  - assume that public space counts are inclusive of private space count
-- Reduce business hours and after hours by selecting the max value
-  - assume peak pricing is most critical in daily pricing
-  - assume there are no $0 costs in inventory, otherwise they would be considered free spaces or NaN
-  - assume max daily on-street period is 10 hours (8am to 6pm)?
+Only columns that need renaming should be listed. Columns already using internal names are passed through unchanged.
 
+## Processing Pipeline
 
-### Consolidation -- collapsing segments
+The processing includes the following steps, organized into separate Python modules. These modules inherit shared functionality from `base.py` and are composed together in `process.py` via multiple inheritance, providing a single entry point. The `models` list in `settings.yaml` controls which steps run and in what order.
 
-From the assumptions, the data can be reduced to the following:
+### Step 1: Preprocessing (`preprocess.py`)
 
-- free_spaces = on_street_free_spaces + off_street_free_spaces + off_street_residential_spaces
-- paid_space = on_street_paid_spaces + off_street_paid_private_spaces
-- hourly_cost = (
-    on_street_paid_spaces * argmax(on_street_hourly_cost_during_business, on_street_hourly_cost_after_business) + 
-    off_street_paid_public_spaces * argmax(off_street_paid_public_hourly_cost_during_business, off_street_paid_public_hourly_cost_after_business) +
-    off_street_paid_private_spaces * argmax(off_street_paid_private_hourly_cost_during_business, off_street_paid_private_hourly_cost_after_business)
-    ) / (on_street_paid_spaces + off_street_paid_public_spaces + off_street_paid_private_spaces)
-- daily_cost = (off_street_paid_public_spaces * off_street_paid_public_daily_cost + off_street_paid_private_spaces * off_street_paid_private_daily_cost) / (off_street_paid_public_spaces + off_street_paid_private_spaces)
-- monthly_cost = (off_street_paid_public_spaces * off_street_paid_public_monthly_cost +  off_street_paid_private_spaces * off_street_paid_private_monthly_cost) / (off_street_paid_public_spaces + off_street_paid_private_spaces)
+**Method**: `run_preprocessing`
 
-NAs are skipped so that an average is calculated if there is at least one available value. If all are NA, the NA is preserved for imputation.
+Extracts parking cost and supply columns from the land use table and prepares them for imputation. This step replaces `run_reduction` when the input already contains aggregated parking costs (e.g., Metro data) rather than a separate detailed parking inventory (SANDAG-style).
 
-Even after reduction, there are many NAs that will need to be imputed. Below are imputation results using Multiple Imputation by Chained Equations (MICE). Basically you use linear regression to iteratively impute missing values from all other available data, then use the imputed values to reimpute other missing data, and finally aggregating the result.
+**For Metro data**:
+- `PRKCST_HR` represents on-street hourly parking cost
+- `PRKCST_DAY` / `PRKCST_MNTH` represent structured (off-street) daily/monthly costs
+- `PRKSPACES` contains structured parking spaces only — on-street spaces are unknown and estimated later
 
-<img src="output/plots/reg_plot.png"  width="90%">
+**Logic**:
+1. Extracts `hourly`, `daily`, `monthly`, `spaces` from the column-mapped land use table
+2. Replaces zero costs with `NaN` (zero means "no data", not "free parking")
+3. Sets `spaces = NaN` where structured spaces are 0 or missing, signaling "unknown supply" to the space estimation step
+4. Tags zones as having `paid_spaces > 0` if **any** cost is non-zero (even if structured spaces are unknown), ensuring they are included in district creation
+5. Drops parking columns from `lu_df` to avoid duplication in downstream joins
 
+### Step 1 (alt): Reduction (`reduction.py`)
 
-## Create parking "districts"
+> **Note**: This step is **not used** for Oregon Metro. Metro's land use file already contains aggregated parking costs and spaces, so `run_preprocessing` (above) is used instead. This step is retained for backward compatibility with the original SANDAG workflow.
 
-Three step process:
-1. Spatially cluster zones with paid parking based on a maximum distance threshold
-2. Create a concave hull for each cluster plus a walking distance buffer around hull
-3. Join all zones within that hull
+**Method**: `run_reduction`
 
+Used when a **separate raw parking inventory** is provided (SANDAG-style) with detailed on-street/off-street breakdowns. Collapses segments into summary fields:
 
-### 1. Clustering
-Spatial clustering uses a "Agglomerative Clustering" technique where points are grouped into discrete clusters based on distance.
-Inputs:
-- affinity matrix: Pre-computed distance between every geometric polygon. The polygon edge-to-edge distance was used, instead of centroids, to provide a more inclusive and conservative clustering measure.
-- distance threshold: The maximum distance before a new cluster is created.
-- linkage criterion: Which distance to use between observations, in this case "single" distance is used. It can be thought of as the chained distance where the chain is broken and a new cluster is formed when the distance threshold is exceeded:
-  - "ward" minimizes the variance of the clusters being merged.
-  - "average" uses the average of the distances of each observation of the two sets.
-  - "complete" or ‘maximum’ linkage uses the maximum distances between all observations of the two sets.
-  - "single" uses the minimum of the distances between all observations of the two sets.
+- `free_spaces = on_street_free + off_street_free + residential`
+- `paid_spaces = on_street_paid + off_street_paid_private`
+- `hourly` / `daily` / `monthly` = weighted average across on-street and off-street, public and private, selecting max of business/after-business hours
 
-The zones with parking costs can then be grouped together based on the maximum walking distance threshold.
+### Step 2: Imputation (`imputation.py`)
 
-### 2. Concave hull
-A convex hull is formed from as the minimum shape that included all points. However, a convex hull is not sensitive to concave or "gerrymandered" shapes. To form a concave shape, the "alpha shape" can be formed using a Delaunay triangulation technique. 
+**Method**: `run_imputation`
 
-A concave hull can be created by setting the $\alpha$ parameter, which relates to Delaunay triangles where the radii is at most $1/\alpha$. An $\alpha$ of 0 would be the convex hull, and an $\alpha$ of infinity would be the minimum spanning tree of the points. Thus, to set an alpha relative to our space where radii = max_walk_dist then $\alpha$ = 1/max_walk_dist = 1 / (max_dist * 5280)
+Fills in missing `hourly`, `daily`, and `monthly` costs using **Multiple Imputation by Chained Equations (MICE)** via `sklearn.impute.IterativeImputer`.
 
-<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Delaunay_circumcircles_vectorial.svg/512px-Delaunay_circumcircles_vectorial.svg.png"  width="15%">
-<img src="https://doc.cgal.org/latest/Alpha_shapes_2/alphashape.png"  width="15%"><br>
-<img src="https://upload.wikimedia.org/wikipedia/commons/6/6a/ScagnosticsBase.svg"  width="40%">
+**Logic**:
+1. Extracts only the three cost columns from reduced parking data
+2. Runs MICE (`max_iter=100`, `min_value=0`) — each missing cost is iteratively predicted from the other two using ridge regression
+3. Labels which costs were imputed vs. observed
+4. Generates diagnostic regression plots
 
+<img src="output/plots/reg_plot.png" width="90%">
 
-### 3. Spatial join
-Once the concave hull is found for each parking cluster, a simple buffer distance equal to the maximum walking distance is added to buffer around the zone to include additional walkable zones. Using the buffered concave hulls, all MGRA zones are spatially joined if they are within the concave hull envelope, forming discrete "paid parking districts".
+### Step 3: District Creation (`districts.py`)
 
-<img src="output/plots/clustermethod.png"  width="90%">
+**Method**: `create_districts`
 
+Groups zones into parking districts using spatial clustering. Three-step process:
 
-## Estimate parking spaces
+#### 3a. Agglomerative Clustering
+Zones with `paid_spaces > 0` are spatially clustered using agglomerative clustering:
+- **Affinity matrix**: Pre-computed polygon edge-to-edge distances (not centroids)
+- **Distance threshold**: `walk_dist` (0.5 miles)
+- **Linkage**: `"single"` — chained distance, breaks when threshold is exceeded
 
-1. Fetch OSM network
-2. Filter out the edges for roads that definitely don't have parking
-3. Intersect the network with zones (slice up network into zones)
-4. Aggregate road length and intersection count per zone
-5. Model the number of on-street spaces values with network aggregate length/intersection counts
+#### 3b. Concave Hull
+For each cluster, a concave hull (alpha shape) is computed using Delaunay triangulation with α = 1 / (walk_dist × 5280). A buffer of `walk_dist × 5280` feet is added to include walkable surrounding zones.
 
-Alternative estimation, parking space = ~10ft to account for parallel and angled, thus:
-- N = intersections
-- L = total street length
-- spaces =  2 * ( L / 10  - N)
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Delaunay_circumcircles_vectorial.svg/512px-Delaunay_circumcircles_vectorial.svg.png" width="15%">
+<img src="https://doc.cgal.org/latest/Alpha_shapes_2/alphashape.png" width="15%"><br>
+<img src="https://upload.wikimedia.org/wikipedia/commons/6/6a/ScagnosticsBase.svg" width="40%">
 
-<img src="output/plots/parkingspace_distributions.png"  width="90%">
-<!-- <img src="output/plots/parkingspace_regplot.png"  width="90%"> -->
-<img src="output/plots/parkingspace_prediction_plot.png"  width="90%">
+#### 3c. Spatial Join
+All zones within the buffered concave hulls are spatially joined, forming discrete parking districts. Zones are classified as:
+- **Type 1**: Within a cluster AND district (paid parking zone)
+- **Type 2**: Within a district buffer only (free parking, used in cost averaging)
+- **Type 3**: Outside all districts (no parking cost)
 
+<img src="output/plots/clustermethod.png" width="90%">
 
-## Expected parking costs
+### Step 4: Space Estimation (`estimate_spaces.py`)
 
-- district_dummy = {if outside district gets 1, elseif no space zones in hull get 0, else 1}
-  - no space zones = concave hull - parking cost zones
-- distance_dummy = if dist <= max_dist
-- dummy = distance_dummy * district_dummy
-- $numerator_i = e^{dist * \beta_{walk}} * spaces * cost * dummy$
-- $denominator_i = e^{dist * \beta_{walk}} * spaces * dummy$
+**Method**: `run_space_estimation`
 
-Expected parking cost = $\frac{\sum numerator_i}{\sum denominator_i}$
+Estimates on-street parking spaces per zone using the OpenStreetMap road network.
 
+**Logic**:
+1. **Fetch OSM network**: Downloads the drive network for the study area (cached as `./cache/network.graphml`)
+2. **Filter streets**: Keeps only parking-eligible types: `residential`, `living_street`, `road`, `tertiary`, `secondary`
+3. **Aggregate per zone**: Clips network to each zone polygon, computes total road `length` and `intcount` (intersections)
+4. **Estimate spaces**: Two methods controlled by `space_estimation_method`:
 
-<img src="output/plots/parking_costs_exp_hourly.png"  width="33%">
-<img src="output/plots/parking_costs_exp_daily.png"  width="33%">
-<img src="output/plots/parking_costs_exp_monthly.png"  width="33%">
+   **Formulaic (`'calc'`)** — currently used for Metro:
+
+   spaces = 2 × (L / 10 − N)
+
+   Where L = total street length (feet), N = intersection count. Assumes parking on both sides, one space per 10 feet, minus gaps at intersections.
+
+   **Regression (`'lm'`)**:
+
+   spaces ~ 0 + length + intcount + acres + hh_sf + hh_mf + emp_total
+
+   Trained on zones with known space counts. Requires `hh_sf` and `hh_mf` columns in land use data.
+
+Zones with known `spaces > 0` from the input keep their reported values; the formula only fills unknowns.
+
+<img src="output/plots/parkingspace_distributions.png" width="90%">
+<img src="output/plots/parkingspace_prediction_plot.png" width="90%">
+
+### Step 5: Expected Parking Cost (`expected_cost.py`)
+
+**Method**: `run_expected_parking_cost`
+
+Computes the **expected parking cost** for every zone by blending paid and free parking weighted by supply and walking distance.
+
+**Logic**:
+1. Merges imputed costs with estimated spaces. Uses reported `spaces` where available, `estimated_spaces` otherwise.
+2. Pre-computes a zone-to-zone distance matrix for all zones within parking districts (cached to `./output/distances.csv`)
+3. For each destination zone within a district, computes expected cost across all zones within walking distance:
+
+   expected_cost = Σ(exp(d_i × β_walk) × S_i × C_i) / Σ(exp(d_i × β_walk) × S_i)
+
+   Where:
+   - d_i = distance from destination to zone i (miles)
+   - β_walk = walk coefficient (`walk_coef`, default: -0.3)
+   - S_i = parking spaces in zone i
+   - C_i = parking cost in zone i (0 for free zones)
+
+   This produces a gravity-weighted average where closer zones and zones with more supply have greater influence. Zones in the buffer region are set to 0 cost. Zones outside all districts default to 0.
+
+4. Generates interactive Folium maps and static PNGs of expected hourly, daily, and monthly costs.
+
+<img src="output/plots/parking_costs_exp_hourly.png" width="33%">
+<img src="output/plots/parking_costs_exp_daily.png" width="33%">
+<img src="output/plots/parking_costs_exp_monthly.png" width="33%">
+
+## Output
+
+The final output is written to `./output/final_parking_data.csv`. The `output_columns` section in `settings.yaml` controls which columns are included and how they are renamed:
+
+```yaml
+output_columns:
+  expected_parking_df:
+    exp_hourly:
+    exp_daily:
+    exp_monthly:
+    parking_type:
+    spaces_for_calculation: parking_spaces
+    estimated_spaces:
+    spaces:
+```
+
+## Project Structure
+
+```
+├── settings.yaml          # Configuration file
+├── run.py                 # Entry point script
+├── pyproject.toml         # Package metadata and dependencies
+├── parking/
+│   ├── __init__.py        # Shapely 2.x compatibility shim
+│   ├── __main__.py        # Module entry point
+│   ├── base.py            # Shared state, I/O, settings loading
+│   ├── process.py         # Composes all steps via multiple inheritance
+│   ├── preprocess.py      # Step 1: Extract parking data from land use (Metro)
+│   ├── reduction.py       # Step 1 alt: Reduce raw parking inventory (SANDAG)
+│   ├── imputation.py      # Step 2: MICE imputation of missing costs
+│   ├── districts.py       # Step 3: Spatial clustering into parking districts
+│   ├── estimate_spaces.py # Step 4: OSM-based space estimation
+│   └── expected_cost.py   # Step 5: Expected parking cost calculation
+├── data/                  # Input data files
+├── output/                # Generated outputs and plots
+├── cache/                 # Cached network data and shapefiles
+└── notebooks/             # Exploratory analysis notebooks
+```

@@ -305,9 +305,10 @@ class CreateDistricts(base.Base):
             zoom_start=self.settings.get("map_zoom", 10),
         )
         # Folium chlorepleth map of parking clusters with all clusters colored red
+        clusters_gdf = parking_clusters.reset_index()
         folium.Choropleth(
-            data=parking_clusters.reset_index(),
-            geo_data=parking_clusters.reset_index(),  # data
+            data=clusters_gdf,
+            geo_data=clusters_gdf,  # data
             columns=["mgra", "cluster_id"],  # [key, value]
             key_on="feature.properties.mgra",
             fill_column="cluster_id",
@@ -315,6 +316,20 @@ class CreateDistricts(base.Base):
             line_weight=0.1,  # line wight (of the border)      # type: ignore
             line_opacity=0.5,  # line opacity (of the border)   # type: ignore
             legend_name="Parking clusters",
+        ).add_to(mapplot)
+
+        # Add hover tooltip
+        style_function = lambda x: {"fillOpacity": 0, "weight": 0}
+        highlight_function = lambda x: {"fillOpacity": 0.5, "weight": 2}
+        folium.GeoJson(
+            data=clusters_gdf,
+            style_function=style_function,
+            highlight_function=highlight_function,
+            tooltip=folium.GeoJsonTooltip(
+                fields=["mgra", "cluster_id"],
+                aliases=["Zone:", "Cluster:"],
+                localize=True,
+            ),
         ).add_to(mapplot)
         # Plot the paid parking zones
         # folium.GeoJson(

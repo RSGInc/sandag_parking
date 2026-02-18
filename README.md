@@ -158,8 +158,9 @@ Estimates on-street parking spaces per zone using the OpenStreetMap road network
 
 Zones with known `spaces > 0` from the input keep their reported values; the formula only fills unknowns.
 
-<img src="output/plots/parkingspace_distributions.png" width="90%">
-<img src="output/plots/parkingspace_prediction_plot.png" width="90%">
+5. Generates an interactive Folium choropleth (`estimated_parking_spaces.html`) and a static PNG of the estimated spaces per zone.
+
+<img src="output/plots/estimated_parking_spaces.png" width="90%">
 
 ### Step 5: Expected Parking Cost (`expected_cost.py`)
 

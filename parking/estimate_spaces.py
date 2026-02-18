@@ -1,4 +1,5 @@
 import os
+import folium
 import seaborn as sns
 import osmnx as ox
 import geonetworkx as gnx
@@ -22,11 +23,17 @@ class EstimateStreetParking(base.Base):
         assert isinstance(mgra_gdf, gpd.GeoDataFrame)
         assert isinstance(self.imputed_parking_df, pd.DataFrame)
         assert isinstance(self.lu_df, pd.DataFrame)
+        assert isinstance(self.districts_dict, dict), "Must run create_districts() first"
+
+        # Only estimate spaces for zones within parking districts
+        districts_df = self.districts_dict["districts"]
+        district_zones = districts_df[districts_df.is_prkdistrict].index.unique()
+        mgra_district_gdf = mgra_gdf.loc[mgra_gdf.index.intersection(district_zones)]
 
         parking_df = self.aggregate_spaces_data(self.imputed_parking_df)
-        street_data = self.get_streetdata(mgra_gdf)
+        street_data = self.get_streetdata(mgra_district_gdf)
         estimated_spaces = self.estimate_spaces(
-            street_data, mgra_gdf, parking_df, self.lu_df, method
+            street_data, mgra_district_gdf, parking_df, self.lu_df, method
         )
 
         # estimated_spaces.to_csv(out_path)
@@ -35,6 +42,13 @@ class EstimateStreetParking(base.Base):
         # append combined
         # self.combined_df = self.combined_df.join(self.estimated_spaces_df)
         self.update_combined_df("estimated_spaces_df", self.estimated_spaces_df.drop(columns='spaces'))
+
+        # Plot estimated spaces (district zones only)
+        plots_dir = self.settings.get("plots_dir")
+        spaces_gdf = self.estimated_spaces_df[["spaces", "estimated_spaces"]].join(mgra_gdf[["geometry"]])
+        spaces_gdf = gpd.GeoDataFrame(spaces_gdf.dropna(subset=["estimated_spaces"]))
+        self.map_spaces(spaces_gdf, plots_dir)
+        self.map_spaces_png(spaces_gdf, plots_dir)
 
     def aggregate_spaces_data(self, raw_parking_df):
         is_raw = any([x for x in raw_parking_df.columns if "on_street" in x])
@@ -226,6 +240,71 @@ class EstimateStreetParking(base.Base):
         self.plot_predictions(mod_lm, model_df, plots_dir)
 
         return result
+
+    def map_spaces(self, spaces_gdf, plots_dir):
+        """Interactive Folium choropleth of estimated parking spaces."""
+        if not self.settings.get("plots"):
+            return
+
+        gdf = spaces_gdf[["geometry", "estimated_spaces", "spaces"]].reset_index()
+        gdf["spaces"] = gdf["spaces"].fillna(0).astype(int)
+        gdf = gpd.GeoDataFrame(gdf)
+
+        mapplot = folium.Map(
+            location=self.settings.get("map_center", [45.52, -122.68]),
+            tiles=self.settings.get("map_tiles", "cartodbpositron"),
+            zoom_start=self.settings.get("map_zoom", 10),
+        )
+        folium.Choropleth(
+            data=gdf,
+            geo_data=gdf,
+            columns=[gdf.columns[0], "estimated_spaces"],
+            key_on=f"feature.properties.{gdf.columns[0]}",
+            fill_column="estimated_spaces",
+            fill_color="YlGnBu",
+            line_weight=0.1,
+            line_opacity=0.5,
+            legend_name="Estimated Parking Spaces",
+        ).add_to(mapplot)
+
+        # Add hover tooltip
+        id_col = gdf.columns[0]
+        style_function = lambda x: {"fillOpacity": 0, "weight": 0}
+        highlight_function = lambda x: {"fillOpacity": 0.5, "weight": 2}
+        folium.GeoJson(
+            data=gdf,
+            style_function=style_function,
+            highlight_function=highlight_function,
+            tooltip=folium.GeoJsonTooltip(
+                fields=[id_col, "estimated_spaces", "spaces"],
+                aliases=["Zone:", "Est. Spaces:", "Input Spaces:"],
+                localize=True,
+            ),
+        ).add_to(mapplot)
+
+        mapplot.save(f"{plots_dir}/estimated_parking_spaces.html")
+
+    def map_spaces_png(self, spaces_gdf, plots_dir):
+        """Static PNG map of estimated parking spaces."""
+        if not self.settings.get("plots"):
+            return
+
+        fig, ax = plt.subplots(1, 1, figsize=(8, 8))
+        gdf = spaces_gdf[["geometry", "estimated_spaces"]].dropna().reset_index()
+        gdf = gpd.GeoDataFrame(gdf)
+
+        bounds = gdf.total_bounds  # [minx, miny, maxx, maxy]
+        dx = (bounds[2] - bounds[0]) * 0.05
+        dy = (bounds[3] - bounds[1]) * 0.05
+        ax.set_xlim(bounds[0] - dx, bounds[2] + dx)
+        ax.set_ylim(bounds[1] - dy, bounds[3] + dy)
+
+        gdf.plot(
+            column="estimated_spaces", alpha=0.5, ax=ax,
+            legend=True, cmap="YlGnBu",
+        ).set_title("Estimated Parking Spaces")
+        fig.savefig(f"{plots_dir}/estimated_parking_spaces.png")
+        plt.close(fig)
 
     def plot_distributions(self, model_df, plot_dir):
 

@@ -54,6 +54,10 @@ class ExpectedParkingCost(base.Base):
         exp_prkcosts_df['spaces_for_calculation'] = costs_df['spaces_for_calculation']
 
         # Map it
+        input_costs = self.imputed_parking_df[["hourly", "daily", "monthly"]].rename(
+            columns={"hourly": "input_hourly", "daily": "input_daily", "monthly": "input_monthly"}
+        )
+        exp_prkcosts_gdf = exp_prkcosts_gdf.join(input_costs)
         self.map_costs_pngs(exp_prkcosts_gdf, plots_dir)
         self.map_costs(exp_prkcosts_gdf, plots_dir)
 
@@ -185,7 +189,9 @@ class ExpectedParkingCost(base.Base):
             return
 
         for cost_type in ["exp_hourly", "exp_daily", "exp_monthly"]:
-            gdf = exp_prkcost_gdf[["geometry", cost_type]].dropna().reset_index()
+            input_col = "input_" + cost_type.replace("exp_", "")
+            gdf = exp_prkcost_gdf[["geometry", cost_type, input_col]].dropna(subset=[cost_type]).reset_index()
+            gdf[input_col] = gdf[input_col].fillna(0).round(2)
             gdf = gpd.GeoDataFrame(gdf)
 
             # Plot paid parking zones
@@ -207,6 +213,23 @@ class ExpectedParkingCost(base.Base):
             ).add_to(
                 mapplot
             )  # name on the legend color bar
+
+            # Add hover tooltip
+            label = cost_type.replace("exp_", "").capitalize()
+            input_col = "input_" + cost_type.replace("exp_", "")
+            style_function = lambda x: {"fillOpacity": 0, "weight": 0}
+            highlight_function = lambda x: {"fillOpacity": 0.5, "weight": 2}
+            folium.GeoJson(
+                data=gdf,
+                style_function=style_function,
+                highlight_function=highlight_function,
+                tooltip=folium.GeoJsonTooltip(
+                    fields=["MAZ", cost_type, input_col],
+                    aliases=["Zone:", f"Expected {label} ($):", f"Input {label} ($):"],
+                    localize=True,
+                ),
+            ).add_to(mapplot)
+
             mapplot.save(f"{plots_dir}/parking_costs_{cost_type}.html")
 
     def map_costs_pngs(self, exp_prkcost_gdf, plots_dir):

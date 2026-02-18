@@ -22,8 +22,10 @@ class CreateDistricts(base.Base):
 
         mgra_gdf = self.mgra_data()
         print("Creating parking districts")
+        max_dist = self.settings.get("walk_dist")
+        buffer_dist = self.settings.get("buffer_dist", max_dist)
         self.districts_dict = self.parking_districts(
-            self.imputed_parking_df, mgra_gdf, self.settings.get("walk_dist")
+            self.imputed_parking_df, mgra_gdf, max_dist, buffer_dist
         )
 
         self.districts_df = self.districts_dict['districts'].drop(columns=['geometry'])
@@ -64,7 +66,10 @@ class CreateDistricts(base.Base):
         # self.combined_df = self.combined_df.join(self.districts_df)
         self.update_combined_df("districts_df", self.districts_df)
 
-    def parking_districts(self, imputed_df, mgra_gdf, max_dist):
+    def parking_districts(self, imputed_df, mgra_gdf, max_dist, buffer_dist=None):
+
+        if buffer_dist is None:
+            buffer_dist = max_dist
 
         # Check that mgra is the index
         if imputed_df.index.name != "mgra" and "mgra" in imputed_df.columns:
@@ -116,7 +121,7 @@ class CreateDistricts(base.Base):
             .to_frame("geometry")
         )
         hull_geoms.index.name = "hull_id"
-        buffer_geoms = hull_geoms.geometry.buffer(max_dist * 5280).to_frame("geometry")
+        buffer_geoms = hull_geoms.geometry.buffer(buffer_dist * 5280).to_frame("geometry")
 
         # Consolidate overlapping geometries
         parents = {}

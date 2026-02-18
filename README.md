@@ -118,7 +118,7 @@ Zones with `paid_spaces > 0` are spatially clustered using agglomerative cluster
 - **Linkage**: `"single"` — chained distance, breaks when threshold is exceeded
 
 #### 3b. Concave Hull
-For each cluster, a concave hull (alpha shape) is computed using Delaunay triangulation with α = 1 / (walk_dist × 5280). A buffer of `walk_dist × 5280` feet is added to include walkable surrounding zones.
+For each cluster, a concave hull (alpha shape) is computed using Delaunay triangulation with α = 1 / (walk_dist × 5280). A buffer of `buffer_dist × 5280` feet is added to include walkable surrounding zones.
 
 <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/db/Delaunay_circumcircles_vectorial.svg/512px-Delaunay_circumcircles_vectorial.svg.png" width="15%">
 <img src="https://doc.cgal.org/latest/Alpha_shapes_2/alphashape.png" width="15%"><br>

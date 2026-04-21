@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 from . import base
+import folium
 
 
 class PreprocessData(base.Base):
@@ -21,6 +22,53 @@ class PreprocessData(base.Base):
         spaces  - structured (off-street) parking spaces only
                   (on-street spaces are unknown and will be estimated)
     """
+    
+    def map_input_costs(self, parking_df, cost_col, prefix="input"):    
+        """Interactive Folium choropleth of input parking cost data."""
+        if not self.settings.get("plots"):
+            return
+        
+         # Read input
+        mgra_gdf = self.mgra_data()
+
+        # Reset index so the zone ID becomes a regular column
+        gdf = mgra_gdf[["geometry"]].join(parking_df[[cost_col]]).reset_index()
+        
+        # Drop external stations
+        gdf = gdf = gdf.dropna(subset=cost_col)
+        zone_col = gdf.columns[0]
+
+        centroid = gdf.geometry.union_all().centroid
+        map_center = self.settings.get("map_center", [centroid.y, centroid.x])
+        mapplot = folium.Map(
+            location=map_center,
+            tiles=self.settings.get("map_tiles", "cartodbpositron"),
+            zoom_start=self.settings.get("map_zoom", 10),
+        )
+        folium.Choropleth(
+            data=gdf,
+            geo_data=gdf,
+            columns=[zone_col, cost_col],
+            key_on=f"feature.properties.{zone_col}",
+            fill_color="YlGnBu",
+            line_weight=0.1,
+            line_opacity=0.5,
+            legend_name=f"Input {cost_col} cost",
+        ).add_to(mapplot)
+
+        # Add hover tooltip showing zone name and cost value
+        folium.GeoJson(
+            data=gdf,
+            style_function=lambda _: {"fillOpacity": 0, "weight": 0},
+            highlight_function=lambda _: {"fillOpacity": 0.5, "weight": 2},
+            tooltip=folium.GeoJsonTooltip(
+                fields=[zone_col, cost_col],
+                aliases=["Zone:", f"Input {cost_col.title()} Cost:"],
+                localize=True,
+            ),
+        ).add_to(mapplot)
+
+        mapplot.save(f"{self.settings.get('plots_dir')}/{prefix}_{cost_col}_cost.html")
 
     def run_preprocessing(self):
         """
@@ -57,12 +105,20 @@ class PreprocessData(base.Base):
             parking_df.loc[parking_df["spaces"] == 0, "spaces"] = np.nan
         else:
             parking_df["spaces"] = np.nan
+            
+        # --- Plot input costs ---
+        for cost in available_cost_cols:
+           self.map_input_costs(parking_df, cost, prefix="input")
 
         # Replace 0 costs with NaN – 0 means "no data", not "free parking"
         for cost in available_cost_cols:
             parking_df[cost] = pd.to_numeric(
                 parking_df[cost], errors="coerce"
             ).replace(0, np.nan)
+            
+        # --- Plot preprocessed costs ---
+        for cost in available_cost_cols:
+           self.map_input_costs(parking_df, cost, prefix="preprocessed")
 
         # --- Identify zone categories ---
         has_cost = parking_df[available_cost_cols].notna().any(axis=1)

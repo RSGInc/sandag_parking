@@ -200,7 +200,7 @@ class EstimateStreetParking(base.Base):
             assert isinstance(df, pd.DataFrame)
             df.to_csv(data_path)
         else:
-            street_data = pd.read_csv(data_path).set_index("MAZ")
+            street_data = pd.read_csv(data_path, index_col=0)
 
         self.street_data = street_data
 

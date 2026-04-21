@@ -87,12 +87,12 @@ class Base:
             )
 
             if not os.path.isfile(cached_path):
-                self.mgra_gdf = gpd.read_file(path).rename(columns={"MAZ_NO": "MAZ", 'TAZ_NO': "TAZ"}).set_index("MAZ")[
+                self.mgra_gdf = gpd.read_file(path).rename(columns=self.settings.get("column_mapping")).set_index("mgra")[
                     ["TAZ", "geometry"]
                 ]
                 self.mgra_gdf.to_file(cached_path)
             else:
-                self.mgra_gdf = gpd.read_file(cached_path).set_index("MAZ")
+                self.mgra_gdf = gpd.read_file(cached_path).set_index("mgra")
 
         return self.mgra_gdf
 
@@ -126,7 +126,7 @@ class Base:
         # Read existing data
         for df_name, path in self.settings.get('outputs').items():
             if os.path.exists(path) and df_name != "combined_df":
-                setattr(self, df_name, pd.read_csv(path))
+                setattr(self, df_name, pd.read_csv(path, index_col=0))
         return
 
     def write_output(self):

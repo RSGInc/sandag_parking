@@ -203,8 +203,8 @@ class ExpectedParkingCost(base.Base):
             folium.Choropleth(
                 data=gdf,
                 geo_data=gdf,  # data
-                columns=["MAZ", cost_type],  # [key, value]
-                key_on="feature.properties.MAZ",
+                columns=["mgra", cost_type],  # [key, value]
+                key_on="feature.properties.mgra",
                 fill_column=cost_type,
                 fill_color="YlOrRd",  # cmap
                 line_weight=0.1,  # line wight (of the border) # type: ignore
@@ -224,7 +224,7 @@ class ExpectedParkingCost(base.Base):
                 style_function=style_function,
                 highlight_function=highlight_function,
                 tooltip=folium.GeoJsonTooltip(
-                    fields=["MAZ", cost_type, input_col],
+                    fields=["mgra", cost_type, input_col],
                     aliases=["Zone:", f"Expected {label} ($):", f"Input {label} ($):"],
                     localize=True,
                 ),

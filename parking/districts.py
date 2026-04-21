@@ -44,7 +44,7 @@ class CreateDistricts(base.Base):
         # Skip this step if nothing to update
         if all_shp_files and same:
             print("Using existing district data")
-            self.districts_df = pd.read_csv(os.path.join(out_dir, 'districts.csv'))
+            self.districts_df = pd.read_csv(os.path.join(out_dir, 'districts.csv'), index_col=0)
         else:
             # Read input
             plots_dir = self.settings.get("plots_dir")

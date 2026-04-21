@@ -224,4 +224,4 @@ class ImputeParkingCosts(base.Base):
             txt = f"(x={from_x}, y={to_y}), y = {str(round(mod.intercept, 3))} + {str(round(mod.slope, 3))}x"
             axes[1][1].text(0, k, txt)
 
-        fig.savefig("output/plots/reg_plot.png")
+        fig.savefig(f"{self.settings.get('plots_dir')}/reg_plot.png")

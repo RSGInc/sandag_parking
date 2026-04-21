@@ -105,6 +105,6 @@ class ReduceRawParkingData(base.Base):
 
         # Can't have $0 costs, replace with NA
         for cost in ["hourly", "daily", "monthly"]:
-            df[cost] = df[cost].replace(0, np.NaN)
+            df[cost] = df[cost].replace(0, np.nan)
 
         return df

@@ -33,7 +33,7 @@ class Base:
             "output_dir": "./output",
             "walk_dist": 0.5,
             "walk_coef": -0.3,
-            "plot": True,
+            "plots": True,
         }
 
         # Add default parameters if missing

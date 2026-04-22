@@ -1,25 +1,25 @@
 space_estimation_method: 'calc'
 cache_dir: "./cache"
-output_dir: "./output"
-plots_dir: "./output/plots"
+output_dir: "./output/metro"
+plots_dir: "./output/metro/plots"
 plots: True
 
 # Inputs
 inputs:
-  land_use: "C:/projects/odot_joint_estimation/pnr/SimOR/resident/model_data/metro/data_full/raw/land_use.csv"
-  geometry: "C:/projects/odot_joint_estimation/pnr/SimOR/resident/model_data/metro/data_full/raw/MAZs_22333_2025-11-20.shp"
+  land_use: "C:/Documents/git_locals/SimOR/resident/model_data/metro/data_full/land_use_4.csv"
+  geometry: "C:/Documents/git_locals/SimOR/resident/model_data/metro/data_full/MAZ_poi_surface.shp"
   # raw_parking_inventory: "./data/mgra_parking_inventory.csv"  # Optional: only needed for SANDAG-style separate parking inventory
 
 # Data input/outputs. These files serve as both inputs and output locations.
 
 outputs:
   # reduced_parking_df: "./output/reduced_parking_costs.csv"     # Output from reduction and also input to imputation step
-  imputed_parking_df: "./output/imputed_parking_costs.csv"     # Output from imputation and also input to district creation
-  districts_df: "./output/district_data.csv"                     # Output from district creation and also input to aggregation
+  imputed_parking_df: "./output/metro/imputed_parking_costs.csv"     # Output from imputation and also input to district creation
+  districts_df: "./output/metro/district_data.csv"                     # Output from district creation and also input to aggregation
   # aggregated_street_data: "./output/aggregated_street_data.csv"   # Output from network data aggregation and input to space estimation
-  estimated_spaces_df: "./output/estimated_spaces.csv"          # Output from space estimation
-  expected_parking_df: './output/expected_parking_data.csv'       # Output
-  combined_df: './output/final_parking_data.csv'                  # Output
+  estimated_spaces_df: "./output/metro/estimated_spaces.csv"          # Output from space estimation
+  expected_parking_df: './output/metro/expected_parking_data.csv'       # Output
+  combined_df: './output/metro/final_parking_data.csv'                  # Output
 
 
 # If you want to rename columns, you can do so here.
@@ -47,7 +47,7 @@ output_columns:
 #   PRKSPACES  – structured (off-street) parking spaces only
 #                (on-street spaces are unknown and will be estimated)
 column_mapping:
-  MAZ_NO: mgra
+  MAZ: mgra
   TAZ_NO: TAZ
   PRKCST_HR: hourly
   PRKCST_DAY: daily

@@ -14,6 +14,10 @@ class ParkingProcessing(
     EstimateStreetParking,
     ExpectedParkingCost,
 ):
+    
+    def __init__(self, settings_file):
+        super().__init__(settings_file)
+    
     def run_processing(self):
 
         # Runs models listed in settings.yaml

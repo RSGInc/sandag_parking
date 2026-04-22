@@ -16,8 +16,8 @@ class Base:
     # Columns in the "combined_df" at the end of the process
     step_cols = {}
 
-    def __init__(self):
-        with open("settings.yaml", "r") as stream:
+    def __init__(self, settings_file):
+        with open(settings_file, "r") as stream:
             try:
                 self.settings = yaml.safe_load(stream)
             except yaml.YAMLError as exc:

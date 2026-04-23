@@ -6,12 +6,20 @@
     "configurations": [
 
         {
-            "name": "Run Parking Estimation",
+            "name": "Run Metro",
             "type": "debugpy",
             "request": "launch",
             "program": "run.py",
             "console": "integratedTerminal",
             "args": ["-c", "settings_metro.yaml"]
+        },
+        {
+            "name": "Run SKATS",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "run.py",
+            "console": "integratedTerminal",
+            "args": ["-c", "settings_skats.yaml"]
         }
     ]
 }

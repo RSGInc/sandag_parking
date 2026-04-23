@@ -110,6 +110,20 @@ class PreprocessData(base.Base):
         for cost in available_cost_cols:
            self.map_input_costs(parking_df, cost, prefix="input")
 
+        # --- Adjust costs and identify zones with paid/free parking ---
+        # SKATS adjustment
+        # For zones with free parking, retain $0 cost
+        if self.settings.get("is_skats"):
+            eps_float = np.finfo(float).eps
+
+            # Zones with free limited on-street parking have PRKCST_HR=0 & PRKCST_DAILY=15
+            zero_hourly = parking_df['hourly'] == 0
+            fine_daily = parking_df['daily'] == 15
+            parking_df.loc[zero_hourly & fine_daily, 'hourly'] = eps_float
+            
+            # Zone 7330 has known free parking
+            parking_df.loc[7330, ['hourly', 'daily', 'monthly']] = eps_float
+            
         # Replace 0 costs with NaN – 0 means "no data", not "free parking"
         for cost in available_cost_cols:
             parking_df[cost] = pd.to_numeric(

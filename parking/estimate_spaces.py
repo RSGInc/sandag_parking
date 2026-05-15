@@ -14,6 +14,10 @@ from . import base
 
 class EstimateStreetParking(base.Base):
 
+    @staticmethod
+    def is_no_estimation_method(method):
+        return method is None or str(method).lower() == "none"
+
     def run_space_estimation(self):
         method = self.settings.get("space_estimation_method")
 
@@ -31,7 +35,10 @@ class EstimateStreetParking(base.Base):
         mgra_district_gdf = mgra_gdf.loc[mgra_gdf.index.intersection(district_zones)]
 
         parking_df = self.aggregate_spaces_data(self.imputed_parking_df)
-        street_data = self.get_streetdata(mgra_district_gdf)
+        if self.is_no_estimation_method(method):
+            street_data = pd.DataFrame(index=mgra_district_gdf.index)
+        else:
+            street_data = self.get_streetdata(mgra_district_gdf)
         estimated_spaces = self.estimate_spaces(
             street_data, mgra_district_gdf, parking_df, self.lu_df, method
         )
@@ -67,19 +74,26 @@ class EstimateStreetParking(base.Base):
         return spaces_df
 
     def estimate_spaces(self, street_data, mgra_gdf, parking_df, land_use, method="lm"):
+        if self.is_no_estimation_method(method):
+            result = street_data.copy()
+            result["estimated_spaces"] = parking_df.reindex(result.index)["spaces"]
+            return result
+
         spaces_df = parking_df.join(street_data[["length", "intcount"]])
         spaces_df = spaces_df.join((mgra_gdf.geometry.area / 43560).to_frame("acres"))
         spaces_df = spaces_df[(spaces_df.spaces > 0) & (spaces_df.length > 0)]
 
         # Impute parking for only missing zones
-        if method != "lm":
+        if method == "calc":
             street_data["estimated_spaces"] = self.calculate_spaces(
                 street_data.length, street_data.intcount
             ).astype(int)
-        else:
+        elif method == "lm":
             street_data["estimated_spaces"] = self.predict_spaces(
                 street_data, parking_df, mgra_gdf, land_use
             )
+        else:
+            raise ValueError(f"Unknown method: {method} - must be 'calc', 'lm', or 'None'")
 
         street_data.loc[spaces_df.index, "estimated_spaces"] = spaces_df.spaces.astype(
             int

@@ -32,7 +32,7 @@ All settings are controlled via `settings.yaml`:
 | `inputs.geometry` | Path to the zone shapefile |
 | `inputs.raw_parking_inventory` | *(Optional)* Path to a separate parking inventory CSV (SANDAG-style) |
 | `column_mapping` | Renames input columns to internal names (e.g., `PRKCST_HR` → `hourly`) |
-| `space_estimation_method` | `'calc'` (formulaic) or `'lm'` (regression) |
+| `space_estimation_method` | `'calc'` (formulaic), `'lm'` (regression), or `'None'`/`None` (use input spaces only) |
 | `walk_dist` | Maximum walking distance in miles (default: 0.5) |
 | `walk_coef` | Walk distance decay coefficient (default: -0.3) |
 | `map_center` | `[lat, lon]` for Folium map centering |
@@ -142,7 +142,7 @@ Estimates on-street parking spaces per zone using the OpenStreetMap road network
 1. **Fetch OSM network**: Downloads the drive network for the study area (cached as `./cache/network.graphml`)
 2. **Filter streets**: Keeps only parking-eligible types: `residential`, `living_street`, `road`, `tertiary`, `secondary`
 3. **Aggregate per zone**: Clips network to each zone polygon, computes total road `length` and `intcount` (intersections)
-4. **Estimate spaces**: Two methods controlled by `space_estimation_method`:
+4. **Estimate spaces**: Three methods controlled by `space_estimation_method`:
 
    **Formulaic (`'calc'`)** — currently used for Metro:
 
@@ -155,6 +155,10 @@ Estimates on-street parking spaces per zone using the OpenStreetMap road network
    spaces ~ 0 + length + intcount + acres + hh_sf + hh_mf + emp_total
 
    Trained on zones with known space counts. Requires `hh_sf` and `hh_mf` columns in land use data.
+
+  **Input only (`'None'` or `None`)**:
+
+  No on-street space estimation is performed. Zones with known input `spaces` keep those values, and zones without input spaces remain missing at this step.
 
 Zones with known `spaces > 0` from the input keep their reported values; the formula only fills unknowns.
 

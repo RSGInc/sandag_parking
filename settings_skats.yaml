@@ -1,31 +1,31 @@
 space_estimation_method: 'calc'
 cache_dir: "./cache"
-output_dir: "./output/metro"
-plots_dir: "./output/metro/plots"
+output_dir: "./output/skats"
+plots_dir: "./output/skats/plots"
 plots: True
 
 # SKATS adjustments
 # Code assumes $0 means "unknown" cost. Adjust to retain $0 value and avoid imputation:
 # Set $0 hourly cost for zones with free limited on-street parking (PRKCST_HR=0 & PRKCST_DAY=15)
 # Set $0 hourly, daily, and monthly costs for zone 7330
-is_skats: False
+is_skats: True
 
 # Inputs
 inputs:
-  land_use: "C:/Documents/git_locals/SimOR/resident/model_data/metro/data_full/land_use_4.csv"
-  geometry: "C:/Documents/git_locals/SimOR/resident/model_data/metro/data_full/MAZ_poi_surface.shp"
+  land_use: "C:/Documents/git_locals/SimOR/resident/model_data/skats/data_full/land_use.csv"
+  geometry: "C:/Documents/git_locals/SimOR/resident/model_data/skats/data_full/MAZ_poi_surface.shp"
   # raw_parking_inventory: "./data/mgra_parking_inventory.csv"  # Optional: only needed for SANDAG-style separate parking inventory
 
 # Data input/outputs. These files serve as both inputs and output locations.
 
 outputs:
   # reduced_parking_df: "./output/reduced_parking_costs.csv"     # Output from reduction and also input to imputation step
-  imputed_parking_df: "./output/metro/imputed_parking_costs.csv"     # Output from imputation and also input to district creation
-  districts_df: "./output/metro/district_data.csv"                     # Output from district creation and also input to aggregation
+  imputed_parking_df: "./output/skats/imputed_parking_costs.csv"     # Output from imputation and also input to district creation
+  districts_df: "./output/skats/district_data.csv"                     # Output from district creation and also input to aggregation
   # aggregated_street_data: "./output/aggregated_street_data.csv"   # Output from network data aggregation and input to space estimation
-  estimated_spaces_df: "./output/metro/estimated_spaces.csv"          # Output from space estimation
-  expected_parking_df: './output/metro/expected_parking_data.csv'       # Output
-  combined_df: './output/metro/final_parking_data.csv'                  # Output
+  estimated_spaces_df: "./output/skats/estimated_spaces.csv"          # Output from space estimation
+  expected_parking_df: './output/skats/expected_parking_data.csv'       # Output
+  combined_df: './output/skats/final_parking_data.csv'                  # Output
 
 
 # If you want to rename columns, you can do so here.
@@ -46,9 +46,9 @@ output_columns:
 # Format:  input_column_name: internal_column_name
 # Only columns that need renaming should be listed here.
 #
-# Notes on Metro data fields:
+# Notes on SKATS data fields:
 #   PRKCST_HR  – on-street hourly parking cost
-#   PRKCST_DAY – structured (off-street) daily parking cost
+#   PRKCST_DAY – structured (off-street) daily parking cost or on-street daily cost if limited-on-street hourly parking
 #   PRKCST_MNTH– structured (off-street) monthly parking cost
 #   PRKSPACES  – structured (off-street) parking spaces only
 #                (on-street spaces are unknown and will be estimated)
@@ -62,7 +62,7 @@ column_mapping:
   EMP_TOTAL: emp_total
 
 # Map / plot display settings
-map_center: [45.52, -122.68]   # Portland, OR
+map_center: [44.93, -123.026] # Salem, OR
 map_zoom: 12
 map_tiles: 'cartodbpositron'
 

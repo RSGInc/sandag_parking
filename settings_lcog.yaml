@@ -1,0 +1,85 @@
+space_estimation_method: 'calc'
+cache_dir: "./output/lcog/cache"
+output_dir: "./output/lcog"
+plots_dir: "./output/lcog/plots"
+plots: True
+
+# SKATS adjustments
+# Code assumes $0 means "unknown" cost. Adjust to retain $0 value and avoid imputation:
+# Set $0 hourly cost for zones with free limited on-street parking (PRKCST_HR=0 & PRKCST_DAY=15)
+# Set $0 hourly, daily, and monthly costs for zone 7330
+is_skats: False
+
+# Inputs
+inputs:
+  land_use: "C:/lcog_model_data/visum_outputs/MAZ_tbl_ea.csv"
+  geometry: "C:/lcog_model_data/visum_outputs/MAZ_poi_surface.shp"
+  # raw_parking_inventory: "./data/mgra_parking_inventory.csv"  # Optional: only needed for SANDAG-style separate parking inventory
+
+# Data input/outputs. These files serve as both inputs and output locations.
+
+outputs:
+  # reduced_parking_df: "./output/reduced_parking_costs.csv"     # Output from reduction and also input to imputation step
+  imputed_parking_df: "./output/lcog/imputed_parking_costs.csv"     # Output from imputation and also input to district creation
+  districts_df: "./output/lcog/district_data.csv"                     # Output from district creation and also input to aggregation
+  # aggregated_street_data: "./output/aggregated_street_data.csv"   # Output from network data aggregation and input to space estimation
+  estimated_spaces_df: "./output/lcog/estimated_spaces.csv"          # Output from space estimation
+  expected_parking_df: './output/lcog/expected_parking_data.csv'       # Output
+  combined_df: './output/lcog/final_parking_data.csv'                  # Output
+
+
+# If you want to rename columns, you can do so here.
+# Otherwise it return all columns (includes land_use columns))
+output_columns: 
+  expected_parking_df:  # The data frame that is output from the model
+    # mgra:  # Index included by default
+    # column name: optional new column name
+    exp_hourly:
+    exp_daily:
+    exp_monthly:
+    parking_type:
+    spaces_for_calculation: parking_spaces
+    estimated_spaces:
+    spaces:
+
+# Column mapping from input file columns to internal column names.
+# Format:  input_column_name: internal_column_name
+# Only columns that need renaming should be listed here.
+#
+# Notes on Metro data fields:
+#   PRKCST_HR  – on-street hourly parking cost
+#   PRKCST_DAY – structured (off-street) daily parking cost
+#   PRKCST_MNTH– structured (off-street) monthly parking cost
+#   PRKSPACES  – structured (off-street) parking spaces only
+#                (on-street spaces are unknown and will be estimated)
+column_mapping:
+  MAZ: mgra
+  TAZ: TAZ
+  PRKCST_HR: hourly
+  PRKCST_DAY: daily
+  PRKCST_MNTH: monthly
+  PRKSPACES: spaces
+  EMP_TOTAL: emp_total
+
+# Map / plot display settings
+map_center: [44.054, -123.10]   # Eugene, OR
+map_zoom: 12
+map_tiles: 'cartodbpositron'
+
+# Parameters
+walk_dist: 0.5  # maximum walk distance (miles) to consider for weighting parking costs 
+walk_coef: -0.3
+buffer_dist: 0.25  # Buffer distance (miles) around concave hulls to form parking districts
+
+# Which models to run, comment out any that you wish to not run. 
+# However, be sure that the input is ready for whatever the new first model is.
+# For example, if you have parking data cleaned up already, it can be fed into the 'create_districts' model.
+# Or if you manually estimated spaces, you can skip that model too.
+models:
+  - run_preprocessing
+  # - run_reduction  # Use run_preprocessing instead when input has aggregated parking costs
+  - run_imputation
+  - create_districts
+  - run_space_estimation
+  - run_expected_parking_cost
+  - write_output

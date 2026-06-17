@@ -20,6 +20,14 @@
             "program": "run.py",
             "console": "integratedTerminal",
             "args": ["-c", "settings_skats.yaml"]
+        },
+        {
+            "name": "Run LCOG",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "run.py",
+            "console": "integratedTerminal",
+            "args": ["-c", "settings_lcog.yaml"]
         }
     ]
 }

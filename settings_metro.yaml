@@ -34,10 +34,10 @@ output_columns:
   expected_parking_df:  # The data frame that is output from the model
     # mgra:  # Index included by default
     # column name: optional new column name
-    exp_hourly:
-    exp_daily:
-    exp_monthly:
-    parking_type:
+    exp_hourly: EXPPRK_HR
+    exp_daily: EXPPRK_DAY
+    exp_monthly: EXPPRK_MNTH
+    parking_type: PARKAREA
     spaces_for_calculation: parking_spaces
     estimated_spaces:
     spaces:
